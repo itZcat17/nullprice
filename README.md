@@ -7,29 +7,98 @@ with no subscription, no account, no upload, and no telemetry.
 
 ## Layout
 
-```
-hub/index.html                     the catalogue site
+```text
+store/                             the desktop store — Electron, packaged with NSIS
+  catalogue.json                   the feed every view reads from
+  src/main.js                      privileged process: window, IPC, install
+  src/downloader.js                fetch and verify — no Electron import, testable alone
+  src/preload.js                   the entire renderer-facing API surface
+  src/renderer/                    catalogue, detail pages, downloads
+  test/                            download pipeline tests
+  feed/                            local test feed (gitignored, rebuildable)
+hub/index.html                     the same catalogue as a standalone web page
 apps/Ferry/
   src/Nullprice.Ferry.Core/        engine — no UI dependency, fully testable
   tests/Nullprice.Ferry.Core.Tests/
   app/Nullprice.Ferry.App/         WPF shell
 ```
 
-Every app follows the same shape: a `.Core` library holding all the logic with no UI
-types in it, a test project against that library, and a thin shell. The logic is where the
-value is and where the bugs are, so it stays independently testable.
+Every component follows the same shape: the logic lives in a module with no UI or
+framework dependency, has tests against it, and a thin shell drives it. The logic is where
+the value is and where the bugs are, so it stays independently testable.
 
 ## Building
 
-Requires the .NET 10 SDK.
+Requires the .NET 10 SDK and Node 20 or later.
 
 ```powershell
+# the tools
 dotnet build Nullprice.slnx
 dotnet test  Nullprice.slnx
 dotnet run --project apps/Ferry/app/Nullprice.Ferry.App
+
+# the store
+cd store
+npm install
+.\repair-electron.ps1    # see note below — often needed after install
+npm start                # run it
+npm test                 # download pipeline tests
+npm run dist             # build Nullprice-Setup-0.1.0.exe into store/dist
 ```
 
-Open `hub/index.html` in a browser for the catalogue.
+### If `npm start` says "Electron failed to install correctly"
+
+This happened on first install here and is worth knowing about. npm's electron postinstall
+exited 0 having downloaded the 136 MB zip into `%LOCALAPPDATA%\electron\Cache` but extracted
+almost none of it — `node_modules/electron/dist` ended up containing only `locales`, with no
+`electron.exe` and no `path.txt`. Reinstalling does not help, because the zip is already
+cached so the postinstall skips straight to a no-op.
+
+`store\repair-electron.ps1` finishes the extraction from the cached zip. It is idempotent
+and exits immediately if Electron is already fine.
+
+Separately, if your shell has `ELECTRON_RUN_AS_NODE=1` set, Electron will run as plain Node
+and never open a window. Some editor-integrated terminals set it. Clear it first:
+
+```powershell
+Remove-Item env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+```
+
+`hub/index.html` opens directly in a browser and needs no build.
+
+### Rebuilding the local test feed
+
+`store/feed/` is gitignored because it holds large binaries. To recreate it:
+
+```powershell
+dotnet publish apps/Ferry/app/Nullprice.Ferry.App/Nullprice.Ferry.App.csproj `
+  -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o store/feed
+Remove-Item store/feed/*.pdb
+Move-Item store/feed/Nullprice.Ferry.App.exe store/feed/Ferry-0.1.0-portable.exe -Force
+(Get-FileHash store/feed/Ferry-0.1.0-portable.exe -Algorithm SHA256).Hash.ToLower()
+```
+
+Put that hash and the file's byte size into `catalogue.json`. The tests will fail loudly if
+they disagree.
+
+## The store
+
+A native window, no server, no account. It reads `catalogue.json`, shows an app-store style
+page per tool, and for anything marked available it downloads the release, verifies it
+against a published SHA-256, and hands it to the shell to run.
+
+Two decisions worth knowing:
+
+- **The renderer cannot name a URL or a path.** It can only refer to catalogue entries by
+  id; the privileged process decides what that means. So a careless or compromised renderer
+  cannot be talked into fetching and executing something arbitrary. It runs sandboxed with
+  `contextIsolation` on, `nodeIntegration` off, and a restrictive CSP.
+- **A download that fails verification is deleted, not quarantined.** That is the opposite
+  of Ferry's rule for user data, and deliberately so: a corrupt binary has no evidentiary
+  value and every reason not to sit on disk where something might execute it.
+
+Relative release URLs beginning with `./` resolve against `catalogue.json`, which is how the
+local feed works. Production entries use absolute `https://` URLs.
 
 ## The catalogue
 

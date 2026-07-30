@@ -6,6 +6,14 @@ obj/
 .idea/
 TestResults/
 
+# Node / Electron
+node_modules/
+store/dist/
+
+# Built releases served by the local test feed — large binaries, rebuildable
+store/feed/*.exe
+store/feed/*.pdb
+
 # OS
 Thumbs.db
 desktop.ini

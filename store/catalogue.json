@@ -1,0 +1,236 @@
+{
+  "feed": {
+    "version": 1,
+    "updated": "2026-07-30",
+    "note": "Relative download URLs beginning with ./ are resolved against this file and are used for local testing. Production entries use absolute https URLs."
+  },
+  "apps": [
+    {
+      "id": "ferry",
+      "name": "Ferry",
+      "glyph": "ferry",
+      "tagline": "Copy large amounts of data and know for certain it arrived intact.",
+      "replaces": "TeraCopy Pro",
+      "theirPrice": "~$25",
+      "status": "available",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Windows Explorer copies files and tells you nothing about whether they survived the trip. Ferry hashes every file as it reads and re-reads the destination afterwards, so a completed transfer is a verified transfer rather than an assumed one.",
+        "Built for the cases Explorer handles badly: tens of thousands of small files, flaky external drives, and transfers that die three hours in."
+      ],
+      "features": [
+        "Per-file hash verification, with a report of anything that failed",
+        "Files land as .ferrypart and only move into place once verified",
+        "Overwrite, skip, rename, or fail — applied in bulk rather than per file",
+        "Cancel without leaving a truncated file that looks complete",
+        "Honest progress: the whole transfer is measured before a byte moves"
+      ],
+      "download": {
+        "version": "0.1.0",
+        "kind": "portable",
+        "filename": "Ferry-0.1.0-portable.exe",
+        "url": "./feed/Ferry-0.1.0-portable.exe",
+        "sha256": "04d6d50144110e0eea4abe2ce78fc9676ca1ca5e440595fe3b5a5acab593e660",
+        "size": 139617773
+      }
+    },
+    {
+      "id": "capture",
+      "name": "Capture",
+      "glyph": "capture",
+      "tagline": "Screen capture and annotation without an annual bill.",
+      "replaces": "Snagit",
+      "theirPrice": "$39/yr",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Snagit retired its perpetual licence in 2026 and moved to subscription only. Capture does the part almost everyone actually used: take a region, a window, or a scrolling page, mark it up, and get it into a document.",
+        "The annotation layer stays editable. Arrows, boxes, step numbers, and redaction blocks remain objects you can move or delete until you flatten the image yourself."
+      ],
+      "features": [
+        "Region, window, full screen, and scrolling capture",
+        "Editable annotation objects rather than baked-in pixels",
+        "Redaction that removes the underlying pixels, not a box drawn over them",
+        "Copy straight to clipboard, or save as PNG, JPG, or WebP",
+        "Capture history, so a shot taken twenty minutes ago is still recoverable"
+      ],
+      "download": null
+    },
+    {
+      "id": "sheaf",
+      "name": "Sheaf",
+      "glyph": "sheaf",
+      "tagline": "Rearrange, merge, split, and compress PDFs entirely on your own machine.",
+      "replaces": "Acrobat Standard",
+      "theirPrice": "~$155/yr",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "The free web PDF tools all require uploading the document to somebody else's server, which rules them out for anything confidential. Sheaf does the same operations locally and nothing ever leaves the computer.",
+        "A visual page grid is the main interface: drag pages between documents, rotate, delete, and extract, then write the result out."
+      ],
+      "features": [
+        "Merge, split, reorder, rotate, and extract from a visual page grid",
+        "Compress by resampling embedded images, with a size preview first",
+        "Redaction that deletes the underlying text rather than covering it",
+        "Password removal where you already hold the password",
+        "No upload, no account, no network access at all"
+      ],
+      "download": null
+    },
+    {
+      "id": "compare",
+      "name": "Compare",
+      "glyph": "compare",
+      "tagline": "Diff and merge files and whole folder trees.",
+      "replaces": "Beyond Compare",
+      "theirPrice": "$34.30",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Beyond Compare is excellent and fairly priced, which makes it a hard target. Compare aims at the eighty percent people actually use: side-by-side text diff, folder synchronisation, and knowing which of two directories is ahead.",
+        "Free alternatives exist, but most have not been redesigned in fifteen years."
+      ],
+      "features": [
+        "Side-by-side text diff with word-level highlighting",
+        "Three-way merge with a clear resolution pane",
+        "Folder comparison by content hash, not just timestamp and size",
+        "One-way and mirrored sync, with a dry run before anything moves",
+        "Binary comparison with a hex view"
+      ],
+      "download": null
+    },
+    {
+      "id": "expand",
+      "name": "Expand",
+      "glyph": "expand",
+      "tagline": "Type a short trigger, get a long block of text.",
+      "replaces": "PhraseExpress",
+      "theirPrice": "~$50",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Text expansion is a small idea that saves a surprising amount of time, and the established tools charge a lot for it. Expand watches for triggers you define and replaces them inline in any application.",
+        "Snippets support placeholders, so a template can stop and ask for the two or three values that change each time."
+      ],
+      "features": [
+        "Inline expansion in any application that takes keyboard input",
+        "Placeholders that prompt for values before inserting",
+        "Date, time, and clipboard tokens computed at expansion time",
+        "Per-application scoping so triggers do not collide",
+        "Plain-file snippet storage you can back up yourself"
+      ],
+      "download": null
+    },
+    {
+      "id": "batch",
+      "name": "Batch",
+      "glyph": "batch",
+      "tagline": "Convert, resize, and watermark thousands of images at once.",
+      "replaces": "assorted paid converters",
+      "theirPrice": "~$30",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Bulk image work is the kind of task people do once a month and pay for reluctantly. Batch builds a pipeline of operations, previews it on a sample, then runs it across an entire folder tree.",
+        "Everything is non-destructive by default: originals are left alone unless you say otherwise."
+      ],
+      "features": [
+        "Chain resize, crop, convert, watermark, and metadata stripping into one pass",
+        "Preview the whole pipeline on a sample before committing",
+        "Output naming templates with counters and original-name tokens",
+        "Metadata stripping for images headed somewhere public",
+        "Saved pipelines for jobs you repeat"
+      ],
+      "download": null
+    },
+    {
+      "id": "clip",
+      "name": "Clip",
+      "glyph": "clip",
+      "tagline": "Clipboard history that is actually searchable.",
+      "replaces": "ClipboardFusion Pro",
+      "theirPrice": "~$25",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Windows has a built-in clipboard history behind Win+V, and it is thin: no search worth the name, a short memory, and awkward handling of anything that is not plain text.",
+        "Clip keeps a longer history, indexes it for full-text search, and lets you pin the handful of things you paste constantly."
+      ],
+      "features": [
+        "Full-text search across clipboard history",
+        "Pinned entries that survive restarts",
+        "Text, image, and file-list entries all retained",
+        "Automatic exclusion rules for password managers",
+        "Local encrypted store with a configurable retention window"
+      ],
+      "download": null
+    },
+    {
+      "id": "purge",
+      "name": "Purge",
+      "glyph": "purge",
+      "tagline": "Uninstall software and remove what it leaves behind.",
+      "replaces": "Revo Uninstaller Pro",
+      "theirPrice": "$24.95",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64. Administrator rights required.",
+      "description": [
+        "Windows uninstallers routinely leave registry keys, configuration folders, and scheduled tasks behind. Purge watches an uninstall, then scans for the leftovers and shows you what it found.",
+        "Nothing is deleted without review. The scan produces a list, you decide, and a restore point is written first."
+      ],
+      "features": [
+        "Post-uninstall scan for orphaned keys, folders, and scheduled tasks",
+        "Every deletion reviewed before it happens",
+        "System restore point created automatically beforehand",
+        "Batch uninstall of several programs in one queue",
+        "Full log of everything removed, with an undo file"
+      ],
+      "download": null
+    },
+    {
+      "id": "corral",
+      "name": "Corral",
+      "glyph": "corral",
+      "tagline": "Group desktop icons into labelled areas that stay put.",
+      "replaces": "Stardock Fences",
+      "theirPrice": "$29.99",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "Fences has been the answer to a messy desktop for years and has almost no credible free competition. Corral draws labelled, movable containers on the desktop and keeps icons inside them.",
+        "Layouts survive resolution changes and monitor reconfiguration, which is the specific thing that makes homegrown attempts fall apart."
+      ],
+      "features": [
+        "Labelled containers that icons snap into and stay in",
+        "Roll a container up to its title bar to reclaim space",
+        "Layouts saved per display configuration",
+        "Rules that file new icons automatically by type or source",
+        "Double-click the desktop to hide every icon at once"
+      ],
+      "download": null
+    },
+    {
+      "id": "span",
+      "name": "Span",
+      "glyph": "span",
+      "tagline": "Window management and taskbars across multiple monitors.",
+      "replaces": "DisplayFusion",
+      "theirPrice": "$34",
+      "status": "planned",
+      "requirements": "Windows 10 1809 or later, x64",
+      "description": [
+        "PowerToys FancyZones covers window snapping for free and covers it well. Span targets what it leaves out: per-monitor taskbars, saved window layouts, and per-display wallpaper.",
+        "The aim is the multi-monitor gaps in Windows itself rather than a second attempt at zone snapping."
+      ],
+      "features": [
+        "A taskbar on every monitor showing only that monitor's windows",
+        "Named window layouts, restored on demand or at login",
+        "Per-monitor wallpaper, including one image spanning all displays",
+        "Hotkeys to throw the focused window to the next display",
+        "Layout profiles that follow docking and undocking"
+      ],
+      "download": null
+    }
+  ]
+}

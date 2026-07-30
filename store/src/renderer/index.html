@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <title>Nullprice</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="sidebar">
+    <p class="wordmark"><span class="null">Null</span>price</p>
+    <p class="build" id="build">catalogue —</p>
+
+    <div class="nav" id="nav">
+      <button type="button" data-view="catalogue" aria-current="true">
+        Catalogue <span class="count" id="count-catalogue">—</span>
+      </button>
+      <button type="button" data-view="downloads">
+        Downloads <span class="count" id="count-downloads">0</span>
+      </button>
+      <button type="button" data-view="about">About</button>
+    </div>
+
+    <div class="sidebar-foot">
+      <p>Every tool is free. No account, no telemetry, nothing uploaded.</p>
+    </div>
+  </nav>
+
+  <main class="main" id="main">
+    <section class="view" id="view-catalogue">
+      <div class="page-head">
+        <h1>Catalogue</h1>
+        <p>
+          Free rebuilds of paid Windows tools. Each entry names the product it replaces and
+          what that product charges.
+        </p>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="view" id="view-detail" hidden></section>
+
+    <section class="view" id="view-downloads" hidden>
+      <div class="page-head">
+        <h1>Downloads</h1>
+        <p>Installers Nullprice has fetched and verified on this machine.</p>
+      </div>
+      <div id="downloads"></div>
+    </section>
+
+    <section class="view" id="view-about" hidden>
+      <div class="page-head">
+        <h1>About Nullprice</h1>
+        <p>A catalogue of free tools that do the jobs paid Windows software charges for.</p>
+      </div>
+      <dl class="about">
+        <dt>How these are built</dt>
+        <dd>
+          Each tool is an independent implementation written from scratch. No decompilation,
+          no borrowed code, no copied icons, names, or trade dress. Paid products are named
+          only to describe what job the free tool does instead. This is the same footing
+          GIMP, LibreOffice, Inkscape, and Blender stand on: functionality is not
+          copyrightable, specific code and branding are.
+        </dd>
+
+        <dt>Downloads are verified</dt>
+        <dd>
+          Every installer is checked against a published SHA-256 checksum before it can be
+          run. Anything that fails is deleted rather than kept, because a corrupt binary has
+          no evidentiary value and every reason not to sit on disk where it might be
+          executed.
+        </dd>
+
+        <dt>Nothing leaves your machine</dt>
+        <dd>
+          Nullprice fetches the catalogue and the installers you ask for. It sends no
+          analytics, has no account system, and does not report what you install.
+        </dd>
+
+        <dt>Prices quoted</dt>
+        <dd>
+          Correct as of July 2026. A tilde means approximate. Subscription products are shown
+          at their annual rate; everything else is a one-time licence.
+        </dd>
+      </dl>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

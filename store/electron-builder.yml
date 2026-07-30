@@ -1,0 +1,31 @@
+appId: com.nullprice.store
+productName: Nullprice
+copyright: Nullprice
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - src/**/*
+  - package.json
+
+# The catalogue ships beside the binary rather than inside the asar, so it can be
+# replaced without rebuilding the app.
+extraResources:
+  - from: catalogue.json
+    to: catalogue.json
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Nullprice

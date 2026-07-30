@@ -1,0 +1,23 @@
+{
+  "name": "nullprice-store",
+  "productName": "Nullprice",
+  "version": "0.1.0",
+  "description": "Catalogue and installer for free rebuilds of paid Windows tools",
+  "main": "src/main.js",
+  "author": "Nullprice",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/downloader.test.js",
+    "dist": "electron-builder --win --publish never",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^38.2.2",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  }
+}
