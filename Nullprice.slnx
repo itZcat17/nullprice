@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/apps/" />
+  <Folder Name="/apps/Ferry/" />
+  <Folder Name="/apps/Ferry/app/">
+    <Project Path="apps/Ferry/app/Nullprice.Ferry.App/Nullprice.Ferry.App.csproj" />
+  </Folder>
+  <Folder Name="/apps/Ferry/src/">
+    <Project Path="apps/Ferry/src/Nullprice.Ferry.Core/Nullprice.Ferry.Core.csproj" />
+  </Folder>
+  <Folder Name="/apps/Ferry/tests/">
+    <Project Path="apps/Ferry/tests/Nullprice.Ferry.Core.Tests/Nullprice.Ferry.Core.Tests.csproj" />
+  </Folder>
+</Solution>

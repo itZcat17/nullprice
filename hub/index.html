@@ -1,0 +1,935 @@
+<title>Nullprice — free remakes of paid Windows tools</title>
+
+<style>
+  :root {
+    --ground: #eef0f1;
+    --surface: #ffffff;
+    --surface-2: #f7f8f9;
+    --ink: #12171a;
+    --ink-soft: #5a656c;
+    --ink-faint: #8a959b;
+    --accent: #12674a;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3efe9;
+    --warn: #a8442b;
+    --line: #dce1e4;
+    --line-strong: #c3cbd0;
+
+    --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --font-display: "Segoe UI Variable Display", "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.375rem;
+    --step-3: 1.875rem;
+    --step-4: 2.75rem;
+
+    --radius: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1214;
+      --surface: #161c1f;
+      --surface-2: #1c2427;
+      --ink: #e6eaec;
+      --ink-soft: #94a1a7;
+      --ink-faint: #6b787e;
+      --accent: #3ea97d;
+      --accent-ink: #06110c;
+      --accent-soft: #142a22;
+      --warn: #d07a62;
+      --line: #263033;
+      --line-strong: #354347;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #eef0f1;
+    --surface: #ffffff;
+    --surface-2: #f7f8f9;
+    --ink: #12171a;
+    --ink-soft: #5a656c;
+    --ink-faint: #8a959b;
+    --accent: #12674a;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3efe9;
+    --warn: #a8442b;
+    --line: #dce1e4;
+    --line-strong: #c3cbd0;
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1214;
+    --surface: #161c1f;
+    --surface-2: #1c2427;
+    --ink: #e6eaec;
+    --ink-soft: #94a1a7;
+    --ink-faint: #6b787e;
+    --accent: #3ea97d;
+    --accent-ink: #06110c;
+    --accent-soft: #142a22;
+    --warn: #d07a62;
+    --line: #263033;
+    --line-strong: #354347;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---- masthead ---- */
+
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .masthead-inner {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 20px 0;
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .wordmark .null { color: var(--accent); }
+
+  .masthead-note {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- thesis ---- */
+
+  .thesis {
+    padding: 64px 0 48px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .thesis h1 {
+    font-family: var(--font-display);
+    font-size: var(--step-4);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+    max-width: 18ch;
+  }
+
+  .thesis p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: var(--step-1);
+  }
+
+  .ledger {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+
+  .ledger-item .n {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--step-3);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .ledger-item .n.money { color: var(--accent); }
+
+  .ledger-item .k {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* ---- catalog ---- */
+
+  .catalog { padding: 40px 0 80px; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .section-head h2 {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+    background: var(--surface);
+    border: 0;
+    padding: 22px;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+
+  .card:hover { background: var(--surface-2); }
+
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .glyph {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    color: var(--accent);
+    background: var(--surface-2);
+  }
+
+  .card-name {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+
+  .card-tag {
+    margin: 2px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .card-foot {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .replaces {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+
+  .prices {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+  }
+
+  .was {
+    color: var(--warn);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+
+  .now {
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  .chip.building {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  /* ---- detail ---- */
+
+  .detail { padding: 32px 0 80px; }
+  .detail[hidden] { display: none; }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: 0;
+    padding: 8px 0;
+    margin-bottom: 24px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
+  .back:hover { color: var(--accent); }
+  .back:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .detail-head {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .glyph-lg {
+    flex: 0 0 auto;
+    width: 72px;
+    height: 72px;
+    border: 1px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    color: var(--accent);
+    background: var(--surface);
+  }
+
+  .detail-title { flex: 1 1 280px; }
+
+  .detail-title h2 {
+    font-family: var(--font-display);
+    font-size: var(--step-3);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+
+  .detail-title p {
+    margin: 0 0 12px;
+    color: var(--ink-soft);
+    max-width: 58ch;
+  }
+
+  .get {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    min-width: 200px;
+  }
+
+  .btn {
+    font-family: var(--font-display);
+    font-size: var(--step-0);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 12px 22px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+
+  .btn[disabled] {
+    background: transparent;
+    color: var(--ink-faint);
+    border-color: var(--line-strong);
+    cursor: not-allowed;
+  }
+
+  .get small {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    text-align: center;
+    letter-spacing: 0.03em;
+  }
+
+  .detail-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 48px;
+    padding-top: 32px;
+  }
+
+  @media (max-width: 800px) {
+    .detail-body { grid-template-columns: 1fr; gap: 32px; }
+  }
+
+  .detail-body h3 {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+
+  .prose p {
+    margin: 0 0 16px;
+    max-width: 64ch;
+    color: var(--ink);
+  }
+
+  .features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 32px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .features li {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 10px;
+    align-items: start;
+    color: var(--ink-soft);
+  }
+
+  .features li::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-top: 8px;
+    background: var(--accent);
+  }
+
+  .note {
+    border-left: 2px solid var(--line-strong);
+    padding: 2px 0 2px 16px;
+    color: var(--ink-soft);
+    font-size: 0.875rem;
+    max-width: 62ch;
+  }
+
+  .spec-wrap { overflow-x: auto; }
+
+  .spec {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  .spec th, .spec td {
+    text-align: left;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  .spec th {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    padding-right: 20px;
+  }
+
+  .spec td {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  /* ---- footer ---- */
+
+  .foot {
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    padding: 40px 0 56px;
+  }
+
+  .foot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 32px;
+  }
+
+  .foot h4 {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+
+  .foot p {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+    max-width: 46ch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <p class="wordmark"><span class="null">Null</span>price</p>
+    <p class="masthead-note">Windows 10 / 11 &nbsp;·&nbsp; catalogue rev. 2026.07</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="thesis" id="thesis">
+    <h1>Paid Windows tools, rebuilt and given away.</h1>
+    <p>
+      Every tool in this catalogue does the job of something that currently charges for it.
+      Rebuilt from scratch, no subscription, no account, no upload, no telemetry. Where the
+      original went subscription-only, that's usually why it's on the list.
+    </p>
+
+    <div class="ledger">
+      <div class="ledger-item">
+        <span class="n">10</span>
+        <span class="k">tools catalogued</span>
+      </div>
+      <div class="ledger-item">
+        <span class="n money">$447</span>
+        <span class="k">licence cost replaced</span>
+      </div>
+      <div class="ledger-item">
+        <span class="n">1</span>
+        <span class="k">in development</span>
+      </div>
+      <div class="ledger-item">
+        <span class="n">0</span>
+        <span class="k">available to download</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalog" id="catalog">
+    <div class="section-head">
+      <h2>The catalogue</h2>
+      <p class="masthead-note">Select an entry for full details</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="detail" id="detail" hidden aria-labelledby="detail-name"></section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div>
+      <h4>Status</h4>
+      <p>
+        Nothing here is downloadable yet. Every entry shows its real state, and a download
+        button only becomes live when there is a build behind it. A catalogue that promises
+        things it does not have is worse than an empty one.
+      </p>
+    </div>
+    <div>
+      <h4>How these are built</h4>
+      <p>
+        Each tool is an independent implementation written from scratch. No decompilation,
+        no borrowed code, no copied icons or branding. Comparisons name the paid products
+        only to say what job the free tool does instead.
+      </p>
+    </div>
+    <div>
+      <h4>Prices quoted</h4>
+      <p>
+        Correct as of July 2026. Figures marked with a tilde are approximate. Subscription
+        products are shown at their annual rate; everything else is a one-time licence.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const GLYPHS = {
+    capture: '<rect x="4" y="6" width="16" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/><rect x="1" y="3" width="4" height="4" fill="currentColor"/><rect x="19" y="17" width="4" height="4" fill="currentColor"/>',
+    clip: '<rect x="3" y="3" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="7" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="10" height="10" fill="currentColor" opacity="0.25"/>',
+    ferry: '<rect x="2" y="4" width="5" height="16" fill="currentColor" opacity="0.35"/><rect x="17" y="4" width="5" height="16" fill="currentColor" opacity="0.35"/><path d="M8 12h9M13 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    batch: '<rect x="3" y="3" width="7" height="7" fill="currentColor" opacity="0.8"/><rect x="14" y="3" width="7" height="7" fill="currentColor" opacity="0.5"/><rect x="3" y="14" width="7" height="7" fill="currentColor" opacity="0.5"/><rect x="14" y="14" width="7" height="7" fill="currentColor" opacity="0.25"/>',
+    expand: '<rect x="3" y="6" width="6" height="3" fill="currentColor"/><rect x="3" y="15" width="18" height="3" fill="currentColor" opacity="0.45"/><path d="M11 7.5h9" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>',
+    compare: '<rect x="2" y="4" width="8" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="4" width="8" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="8" width="4" height="2" fill="currentColor"/><rect x="16" y="8" width="4" height="2" fill="currentColor" opacity="0.35"/><rect x="4" y="14" width="4" height="2" fill="currentColor" opacity="0.35"/><rect x="16" y="14" width="4" height="2" fill="currentColor"/>',
+    corral: '<rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5" y="9" width="4" height="4" fill="currentColor"/><rect x="11" y="9" width="4" height="4" fill="currentColor" opacity="0.6"/><rect x="17" y="9" width="2" height="4" fill="currentColor" opacity="0.3"/>',
+    span: '<rect x="1" y="5" width="10" height="9" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="5" width="10" height="9" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="17" width="16" height="2" fill="currentColor" opacity="0.4"/>',
+    purge: '<path d="M4 6h16l-1.5 14H5.5z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 3h6" stroke="currentColor" stroke-width="1.5"/><path d="M10 10v6M14 10v6" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>',
+    sheaf: '<rect x="3" y="2" width="12" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="5" width="12" height="16" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><path d="M10 11h6M10 15h6" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>'
+  };
+
+  const APPS = [
+    {
+      id: 'ferry', name: 'Ferry', glyph: 'ferry',
+      tag: 'Copy large amounts of data and know for certain it arrived intact.',
+      replaces: 'TeraCopy Pro', was: '~$25', status: 'building',
+      body: [
+        'Windows Explorer copies files and tells you nothing about whether they survived the trip. Ferry hashes every file as it reads and again as it writes, so a completed transfer is a verified transfer rather than an assumed one.',
+        'Built for the cases Explorer handles badly: tens of thousands of small files, flaky external drives, transfers that die three hours in and have to start over.'
+      ],
+      features: [
+        'Per-file hash verification, with a report of anything that failed',
+        'Pause, resume, and survive an interrupted transfer without restarting',
+        'Queue multiple operations instead of racing them against each other',
+        'Skip, rename, or overwrite decisions applied in bulk rather than per file',
+        'Full log of every operation, exportable as plain text'
+      ],
+      note: 'Chosen as the first build: the scope is small, the problem is well defined, and correctness is testable without any UI.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'capture', name: 'Capture', glyph: 'capture',
+      tag: 'Screen capture and annotation without an annual bill.',
+      replaces: 'Snagit', was: '$39/yr', status: 'planned',
+      body: [
+        'Snagit retired its perpetual licence in 2026 and moved to subscription only. Capture does the part almost everyone actually used: take a region, a window, or a scrolling page, mark it up, and get it into a document.',
+        'The annotation layer stays editable. Arrows, boxes, step numbers, and redaction blocks remain objects you can move or delete until you flatten the image yourself.'
+      ],
+      features: [
+        'Region, window, full screen, and scrolling capture',
+        'Editable annotation objects — arrows, callouts, numbered steps, blur, redaction',
+        'Redaction that removes the underlying pixels rather than drawing over them',
+        'Direct copy to clipboard, or save as PNG, JPG, or WebP',
+        'Capture history so a shot taken twenty minutes ago is still recoverable'
+      ],
+      note: 'Largest surface area of the ten. The capture side is straightforward; the annotation editor is most of the work.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'sheaf', name: 'Sheaf', glyph: 'sheaf',
+      tag: 'Rearrange, merge, split, and compress PDFs entirely on your own machine.',
+      replaces: 'Acrobat Standard', was: '~$155/yr', status: 'planned',
+      body: [
+        'The free web PDF tools all require uploading the document to somebody else\'s server, which rules them out for anything confidential. Sheaf does the same operations locally and nothing ever leaves the computer.',
+        'A visual page grid is the main interface: drag pages between documents, rotate, delete, and extract, then write the result out.'
+      ],
+      features: [
+        'Merge, split, reorder, rotate, and extract pages from a visual grid',
+        'Compress by resampling embedded images, with a size preview before writing',
+        'Redaction that deletes the underlying text, not a black rectangle over it',
+        'Password removal where you already hold the password',
+        'Entirely offline — no upload, no account, no network access at all'
+      ],
+      note: 'Several offline PDF tools already exist on the Microsoft Store, one at $4.99. Sheaf competes on being free and on redaction being genuinely destructive.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'compare', name: 'Compare', glyph: 'compare',
+      tag: 'Diff and merge files and whole folder trees.',
+      replaces: 'Beyond Compare', was: '$34.30', status: 'planned',
+      body: [
+        'Beyond Compare is excellent and reasonably priced, which makes it a hard target. Compare aims at the eighty percent people actually use: side-by-side text diff, folder synchronisation, and knowing which of two directories is ahead.',
+        'Free alternatives exist but most have not been redesigned in fifteen years.'
+      ],
+      features: [
+        'Side-by-side text diff with word-level highlighting',
+        'Three-way merge with a clear resolution pane',
+        'Folder tree comparison by content hash, not just timestamp and size',
+        'One-way and mirrored synchronisation with a dry run before anything moves',
+        'Binary comparison with a hex view for non-text files'
+      ],
+      note: 'The diff algorithm is the easy part. Folder synchronisation is where the correctness risk lives, since mistakes there delete real data.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'expand', name: 'Expand', glyph: 'expand',
+      tag: 'Type a short trigger, get a long block of text.',
+      replaces: 'PhraseExpress', was: '~$50', status: 'planned',
+      body: [
+        'Text expansion is a small idea that saves a surprising amount of time, and the established tools charge a lot for it. Expand watches for triggers you define and replaces them inline in any application.',
+        'Snippets support placeholders, so a template can stop and ask for the two or three values that change each time.'
+      ],
+      features: [
+        'Inline expansion in any application that accepts keyboard input',
+        'Placeholders that prompt for values before inserting',
+        'Date, time, and clipboard tokens computed at expansion time',
+        'Folders and per-application scoping so triggers do not collide',
+        'Plain-file snippet storage you can back up or sync yourself'
+      ],
+      note: 'Needs a global keyboard hook, which has to be written carefully — a badly behaved hook can freeze typing across the whole system.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'batch', name: 'Batch', glyph: 'batch',
+      tag: 'Convert, resize, and watermark thousands of images at once.',
+      replaces: 'assorted paid converters', was: '~$30', status: 'planned',
+      body: [
+        'Bulk image work is the kind of task people do once a month and pay for reluctantly. Batch builds a pipeline of operations, previews it on a sample, then runs it across an entire folder tree.',
+        'Everything is non-destructive by default: originals are left alone unless you explicitly say otherwise.'
+      ],
+      features: [
+        'Chain operations — resize, crop, convert, watermark, strip metadata — into one pass',
+        'Preview the whole pipeline on a sample image before committing',
+        'Output naming templates with counters and original-name tokens',
+        'Metadata stripping for images headed somewhere public',
+        'Saved pipelines for jobs you repeat'
+      ],
+      note: 'Straightforward to build and immediately useful. The crowded end of the catalogue, so it competes on being fast and not nagging.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'clip', name: 'Clip', glyph: 'clip',
+      tag: 'Clipboard history that is actually searchable.',
+      replaces: 'ClipboardFusion Pro', was: '~$25', status: 'planned',
+      body: [
+        'Windows has a built-in clipboard history behind Win+V, and it is thin: no search worth the name, a short memory, and awkward handling of anything that is not plain text.',
+        'Clip keeps a longer history, indexes it for full-text search, and lets you pin the handful of things you paste constantly.'
+      ],
+      features: [
+        'Full-text search across clipboard history',
+        'Pinned entries that survive restarts',
+        'Text, image, and file-list entries all retained',
+        'Automatic exclusion rules for password managers and other sensitive sources',
+        'Local encrypted store, with a configurable retention window'
+      ],
+      note: 'Runs resident in the tray, so memory behaviour and startup cost matter more than the feature list.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'purge', name: 'Purge', glyph: 'purge',
+      tag: 'Uninstall software and remove what it leaves behind.',
+      replaces: 'Revo Uninstaller Pro', was: '$24.95', status: 'planned',
+      body: [
+        'Windows uninstallers routinely leave registry keys, configuration folders, and scheduled tasks behind. Purge watches an uninstall, then scans for the leftovers and shows you what it found.',
+        'Nothing is deleted without review. The scan produces a list, you decide, and a restore point is written first.'
+      ],
+      features: [
+        'Post-uninstall scan for orphaned registry keys, folders, and scheduled tasks',
+        'Every deletion reviewed before it happens — no silent cleanup',
+        'System restore point created automatically before any change',
+        'Batch uninstall of several programs in one queue',
+        'Full log of everything removed, with an undo file'
+      ],
+      note: 'The category attracts scareware, so the design has to lean hard the other way: no scary red counts, no "1,482 problems found", no upsell.',
+      reqs: 'Windows 10 1809 or later, x64. Administrator rights required.'
+    },
+    {
+      id: 'corral', name: 'Corral', glyph: 'corral',
+      tag: 'Group desktop icons into labelled areas that stay put.',
+      replaces: 'Stardock Fences', was: '$29.99', status: 'planned',
+      body: [
+        'Fences has been the answer to a messy desktop for years and has almost no credible free competition. Corral draws labelled, movable containers on the desktop and keeps icons inside them.',
+        'Layouts survive resolution changes and monitor reconfiguration, which is the specific thing that makes homegrown attempts fall apart.'
+      ],
+      features: [
+        'Labelled containers that icons snap into and stay in',
+        'Roll a container up to its title bar to reclaim space',
+        'Layouts saved per display configuration',
+        'Rules that file new icons automatically by type or source',
+        'Double-click empty desktop to hide every icon at once'
+      ],
+      note: 'Technically the most awkward of the ten. It means drawing over the Explorer desktop and tracking icon positions the shell considers its own.',
+      reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'span', name: 'Span', glyph: 'span',
+      tag: 'Window management and taskbars across multiple monitors.',
+      replaces: 'DisplayFusion', was: '$34', status: 'planned',
+      body: [
+        'PowerToys FancyZones covers window snapping for free and covers it well. Span targets what it leaves out: per-monitor taskbars, saved window layouts, and per-display wallpaper handling.',
+        'The aim is the multi-monitor gaps in Windows itself rather than a second attempt at zone snapping.'
+      ],
+      features: [
+        'A taskbar on every monitor showing only that monitor\'s windows',
+        'Named window layouts, restored on demand or at login',
+        'Per-monitor wallpaper, including one image spanning all displays',
+        'Hotkeys to throw the focused window to the next display',
+        'Layout profiles that follow docking and undocking'
+      ],
+      note: 'The weakest case of the ten while FancyZones exists and is free. Kept in the catalogue for the per-monitor taskbar, which people still pay specifically for.',
+      reqs: 'Windows 10 1809 or later, x64'
+    }
+  ];
+
+  const STATUS_LABEL = { building: 'In development', planned: 'Planned' };
+
+  const grid = document.getElementById('grid');
+  const detail = document.getElementById('detail');
+  const catalog = document.getElementById('catalog');
+  const thesis = document.getElementById('thesis');
+  let lastFocused = null;
+
+  function svg(glyph, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true">' + GLYPHS[glyph] + '</svg>';
+  }
+
+  function renderGrid() {
+    grid.innerHTML = APPS.map(function (a) {
+      return '' +
+        '<button class="card" data-id="' + a.id + '">' +
+          '<span class="card-top">' +
+            '<span class="glyph">' + svg(a.glyph, 22) + '</span>' +
+            '<span>' +
+              '<span class="card-name">' + a.name + '</span>' +
+              '<span class="card-tag">' + a.tag + '</span>' +
+            '</span>' +
+          '</span>' +
+          '<span class="card-foot">' +
+            '<span class="replaces">vs ' + a.replaces + '</span>' +
+            '<span class="prices">' +
+              '<span class="was">' + a.was + '</span>' +
+              '<span class="now">$0</span>' +
+            '</span>' +
+          '</span>' +
+          '<span class="chip' + (a.status === 'building' ? ' building' : '') + '">' + STATUS_LABEL[a.status] + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function renderDetail(a) {
+    const live = false; // flips per app once a build exists
+    detail.innerHTML = '' +
+      '<button class="back" id="back">&larr; All tools</button>' +
+      '<div class="detail-head">' +
+        '<span class="glyph-lg">' + svg(a.glyph, 38) + '</span>' +
+        '<div class="detail-title">' +
+          '<h2 id="detail-name" tabindex="-1">' + a.name + '</h2>' +
+          '<p>' + a.tag + '</p>' +
+          '<span class="chip' + (a.status === 'building' ? ' building' : '') + '">' + STATUS_LABEL[a.status] + '</span>' +
+        '</div>' +
+        '<div class="get">' +
+          '<button class="btn" disabled>' + (live ? 'Download' : 'Not yet available') + '</button>' +
+          '<small>Free · no account · no telemetry</small>' +
+        '</div>' +
+      '</div>' +
+      '<div class="detail-body">' +
+        '<div class="prose">' +
+          '<h3>What it does</h3>' +
+          a.body.map(function (p) { return '<p>' + p + '</p>'; }).join('') +
+          '<h3>Planned features</h3>' +
+          '<ul class="features">' + a.features.map(function (f) { return '<li><span>' + f + '</span></li>'; }).join('') + '</ul>' +
+          '<h3>Build note</h3>' +
+          '<p class="note">' + a.note + '</p>' +
+        '</div>' +
+        '<div>' +
+          '<h3>Details</h3>' +
+          '<div class="spec-wrap"><table class="spec">' +
+            row('Status', STATUS_LABEL[a.status]) +
+            row('Version', '—') +
+            row('Size', '—') +
+            row('Price', '$0.00') +
+            row('Replaces', a.replaces) +
+            row('Their price', a.was) +
+            row('Licence', 'Free, no account') +
+            row('Requires', a.reqs) +
+            row('Network use', 'None') +
+            row('Telemetry', 'None') +
+          '</table></div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('back').addEventListener('click', closeDetail);
+    document.getElementById('detail-name').focus();
+  }
+
+  function row(k, v) {
+    return '<tr><th scope="row">' + k + '</th><td>' + v + '</td></tr>';
+  }
+
+  function openDetail(id) {
+    const a = APPS.find(function (x) { return x.id === id; });
+    if (!a) return;
+    lastFocused = document.activeElement;
+    renderDetail(a);
+    catalog.hidden = true;
+    thesis.hidden = true;
+    detail.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function closeDetail() {
+    detail.hidden = true;
+    catalog.hidden = false;
+    thesis.hidden = false;
+    if (lastFocused) lastFocused.focus();
+  }
+
+  grid.addEventListener('click', function (e) {
+    const card = e.target.closest('.card');
+    if (card) openDetail(card.dataset.id);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !detail.hidden) closeDetail();
+  });
+
+  renderGrid();
+</script>

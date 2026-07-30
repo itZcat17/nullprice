@@ -1,0 +1,11 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# OS
+Thumbs.db
+desktop.ini
