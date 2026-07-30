@@ -1,10 +1,19 @@
-:root {
+/* ==========================================================================
+   Theme tokens.
+
+   Four themes. Components only ever read tokens, never raw colours, so adding
+   a fifth means adding one block here and nothing else.
+
+   The semantic pair matters more than the hue: --accent always means "this
+   costs nothing" and --warn always means "this is what they charge". Every
+   theme has to keep both legible against its own ground.
+   ========================================================================== */
+
+:root,
+:root[data-theme="light"] {
   --ground: #eef0f1;
   --surface: #ffffff;
   --surface-2: #f7f8f9;
-  --sidebar: #12171a;
-  --sidebar-ink: #d6dcde;
-  --sidebar-soft: #7f8c92;
   --ink: #12171a;
   --ink-soft: #5a656c;
   --ink-faint: #8a959b;
@@ -15,6 +24,109 @@
   --line: #dce1e4;
   --line-strong: #c3cbd0;
 
+  --sidebar: #12171a;
+  --sidebar-ink: #eef1f2;
+  --sidebar-soft: #7f8c92;
+  --sidebar-accent: #3ea97d;
+  --sidebar-line: rgba(255, 255, 255, 0.08);
+  --sidebar-hover: rgba(255, 255, 255, 0.04);
+}
+
+/* Graphite — cool neutral dark. The straight counterpart to the light theme. */
+:root[data-theme="graphite"] {
+  --ground: #15191b;
+  --surface: #1d2225;
+  --surface-2: #242a2d;
+  --ink: #e4e9ea;
+  --ink-soft: #9aa5aa;
+  --ink-faint: #6d787d;
+  --accent: #3fae7f;
+  --accent-ink: #06130d;
+  --accent-soft: #14291f;
+  --warn: #d4795f;
+  --line: #2c3438;
+  --line-strong: #3d474b;
+
+  --sidebar: #0e1113;
+  --sidebar-ink: #e4e9ea;
+  --sidebar-soft: #79868b;
+  --sidebar-accent: #3fae7f;
+  --sidebar-line: rgba(255, 255, 255, 0.07);
+  --sidebar-hover: rgba(255, 255, 255, 0.035);
+}
+
+/* Ledger — warm dark, brass on ink. Reads like a printed parts catalogue.
+   Here "free" is signalled by brass rather than green: worth something, costs nothing. */
+:root[data-theme="ledger"] {
+  --ground: #1a1714;
+  --surface: #221e1a;
+  --surface-2: #2a251f;
+  --ink: #ece5da;
+  --ink-soft: #a99c8c;
+  --ink-faint: #7a6f62;
+  --accent: #d2a250;
+  --accent-ink: #1a1408;
+  --accent-soft: #2b2317;
+  --warn: #c2664a;
+  --line: #322b24;
+  --line-strong: #453b31;
+
+  --sidebar: #120f0d;
+  --sidebar-ink: #ece5da;
+  --sidebar-soft: #8d8172;
+  --sidebar-accent: #d2a250;
+  --sidebar-line: rgba(255, 255, 255, 0.07);
+  --sidebar-hover: rgba(255, 255, 255, 0.035);
+}
+
+/* Blueprint — deep navy with teal. Technical drawing rather than terminal. */
+:root[data-theme="blueprint"] {
+  --ground: #101820;
+  --surface: #16202a;
+  --surface-2: #1c2833;
+  --ink: #dfe8ef;
+  --ink-soft: #92a4b4;
+  --ink-faint: #64768a;
+  --accent: #45b8a4;
+  --accent-ink: #041614;
+  --accent-soft: #122a29;
+  --warn: #d97a6c;
+  --line: #24323e;
+  --line-strong: #35485a;
+
+  --sidebar: #0a1016;
+  --sidebar-ink: #dfe8ef;
+  --sidebar-soft: #74869a;
+  --sidebar-accent: #45b8a4;
+  --sidebar-line: rgba(255, 255, 255, 0.07);
+  --sidebar-hover: rgba(255, 255, 255, 0.035);
+}
+
+/* No stored preference and the OS wants dark: use Graphite. An explicit
+   data-theme always wins, in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --ground: #15191b;
+    --surface: #1d2225;
+    --surface-2: #242a2d;
+    --ink: #e4e9ea;
+    --ink-soft: #9aa5aa;
+    --ink-faint: #6d787d;
+    --accent: #3fae7f;
+    --accent-ink: #06130d;
+    --accent-soft: #14291f;
+    --warn: #d4795f;
+    --line: #2c3438;
+    --line-strong: #3d474b;
+
+    --sidebar: #0e1113;
+    --sidebar-soft: #79868b;
+    --sidebar-line: rgba(255, 255, 255, 0.07);
+    --sidebar-hover: rgba(255, 255, 255, 0.035);
+  }
+}
+
+:root {
   --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
@@ -22,10 +134,7 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-  height: 100%;
-  margin: 0;
-}
+html, body { height: 100%; margin: 0; }
 
 body {
   display: grid;
@@ -59,7 +168,7 @@ body {
   margin: 0 22px 4px;
 }
 
-.wordmark .null { color: #3ea97d; }
+.wordmark .null { color: var(--sidebar-accent); }
 
 .sidebar .build {
   font-family: var(--font-mono);
@@ -69,11 +178,7 @@ body {
   letter-spacing: 0.05em;
 }
 
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
+.nav { display: flex; flex-direction: column; gap: 1px; }
 
 .nav button {
   display: flex;
@@ -94,13 +199,13 @@ body {
 .nav button:hover { color: var(--sidebar-ink); }
 
 .nav button[aria-current="true"] {
-  color: #fff;
-  border-left-color: #3ea97d;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--sidebar-ink);
+  border-left-color: var(--sidebar-accent);
+  background: var(--sidebar-hover);
 }
 
 .nav button:focus-visible {
-  outline: 2px solid #3ea97d;
+  outline: 2px solid var(--sidebar-accent);
   outline-offset: -2px;
 }
 
@@ -114,22 +219,77 @@ body {
 .sidebar-foot {
   margin-top: auto;
   padding: 16px 22px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sidebar-line);
 }
 
 .sidebar-foot p {
-  margin: 0;
+  margin: 0 0 14px;
   font-size: 11.5px;
   color: var(--sidebar-soft);
   line-height: 1.5;
 }
 
+/* ---- theme switcher ---- */
+
+.themes { display: flex; flex-direction: column; gap: 7px; }
+
+.themes-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sidebar-soft);
+}
+
+.swatches { display: flex; gap: 6px; }
+
+.swatch {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--sidebar-line);
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.swatch::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 7px;
+}
+
+.swatch[data-swatch="light"] { background: #eef0f1; }
+.swatch[data-swatch="light"]::after { background: #12674a; }
+
+.swatch[data-swatch="graphite"] { background: #1d2225; }
+.swatch[data-swatch="graphite"]::after { background: #3fae7f; }
+
+.swatch[data-swatch="ledger"] { background: #221e1a; }
+.swatch[data-swatch="ledger"]::after { background: #d2a250; }
+
+.swatch[data-swatch="blueprint"] { background: #16202a; }
+.swatch[data-swatch="blueprint"]::after { background: #45b8a4; }
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--sidebar-accent);
+  box-shadow: 0 0 0 1px var(--sidebar-accent);
+}
+
+.swatch:focus-visible { outline: 2px solid var(--sidebar-accent); outline-offset: 2px; }
+
+.theme-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--sidebar-soft);
+  min-height: 1em;
+}
+
 /* ---- main ---- */
 
-.main {
-  overflow-y: auto;
-  padding: 30px 34px 48px;
-}
+.main { overflow-y: auto; padding: 30px 34px 48px; }
 
 .view[hidden] { display: none; }
 
@@ -141,22 +301,10 @@ body {
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0 0 6px;
+  text-wrap: balance;
 }
 
-.page-head p {
-  margin: 0;
-  color: var(--ink-soft);
-  max-width: 68ch;
-}
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin: 0 0 20px;
-}
+.page-head p { margin: 0; color: var(--ink-soft); max-width: 68ch; }
 
 /* ---- grid ---- */
 
@@ -185,11 +333,7 @@ body {
 .card:hover { background: var(--surface-2); }
 .card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.card-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-}
+.card-top { display: flex; align-items: flex-start; gap: 13px; }
 
 .glyph {
   flex: 0 0 auto;
@@ -228,11 +372,7 @@ body {
   gap: 10px;
 }
 
-.replaces {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--ink-faint);
-}
+.replaces { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
 
 .prices {
   display: flex;
@@ -319,19 +459,9 @@ body {
   margin: 0 0 5px;
 }
 
-.detail-title p {
-  margin: 0 0 10px;
-  color: var(--ink-soft);
-  max-width: 56ch;
-}
+.detail-title p { margin: 0 0 10px; color: var(--ink-soft); max-width: 56ch; }
 
-.get {
-  flex: 0 0 auto;
-  min-width: 210px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
+.get { flex: 0 0 auto; min-width: 210px; display: flex; flex-direction: column; gap: 7px; }
 
 .btn {
   font-family: var(--font-display);
@@ -369,11 +499,7 @@ body {
   text-align: center;
 }
 
-.meter {
-  height: 5px;
-  background: var(--line);
-  overflow: hidden;
-}
+.meter { height: 5px; background: var(--line); overflow: hidden; }
 
 .meter span {
   display: block;
@@ -452,17 +578,11 @@ body {
   padding-right: 18px;
 }
 
-.spec td {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
+.spec td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ---- downloads ---- */
 
-.rows {
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
+.rows { border: 1px solid var(--line); background: var(--surface); }
 
 .row {
   display: grid;
@@ -477,11 +597,7 @@ body {
 
 .row-name { font-weight: 600; }
 
-.row-detail {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-faint);
-}
+.row-detail { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
 
 .empty {
   border: 1px dashed var(--line-strong);
@@ -489,15 +605,6 @@ body {
   text-align: center;
   color: var(--ink-faint);
   font-size: 13px;
-}
-
-.banner {
-  border-left: 2px solid var(--warn);
-  background: var(--surface);
-  padding: 12px 16px;
-  margin-bottom: 22px;
-  font-size: 13px;
-  color: var(--ink-soft);
 }
 
 .about dt {

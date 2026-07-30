@@ -30,6 +30,15 @@ const GLYPHS = {
 
 const STATUS = { available: 'Available', planned: 'Planned', building: 'In development' };
 
+const THEMES = {
+  light: 'Light — cool grey, pine green',
+  graphite: 'Graphite — cool neutral dark',
+  ledger: 'Ledger — warm dark, brass on ink',
+  blueprint: 'Blueprint — deep navy, teal',
+};
+
+const THEME_KEY = 'nullprice.theme';
+
 /** id -> { state, received, total, path } */
 const progress = new Map();
 
@@ -46,7 +55,63 @@ const el = {
   countDownloads: document.getElementById('count-downloads'),
   downloads: document.getElementById('downloads'),
   main: document.getElementById('main'),
+  swatches: document.getElementById('swatches'),
+  themeName: document.getElementById('theme-name'),
 };
+
+// ---- theme ----------------------------------------------------------------
+
+/**
+ * Applies a theme by stamping data-theme on the root. With no stored choice the
+ * attribute is left off entirely, which lets the prefers-color-scheme block in the
+ * stylesheet follow the operating system instead.
+ */
+function applyTheme(name) {
+  if (name) {
+    document.documentElement.setAttribute('data-theme', name);
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+
+  const effective = name || (matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'light');
+
+  for (const button of el.swatches.querySelectorAll('.swatch')) {
+    button.setAttribute('aria-pressed', button.dataset.swatch === effective ? 'true' : 'false');
+  }
+
+  el.themeName.textContent = name
+    ? THEMES[name]
+    : `Following Windows — ${THEMES[effective].split(' — ')[0].toLowerCase()}`;
+}
+
+function initTheme() {
+  let stored = null;
+  try {
+    stored = localStorage.getItem(THEME_KEY);
+  } catch {
+    // Private mode or a locked-down profile; fall back to following the OS.
+  }
+
+  applyTheme(THEMES[stored] ? stored : null);
+
+  el.swatches.addEventListener('click', (event) => {
+    const button = event.target.closest('.swatch');
+    if (!button) return;
+
+    const next = button.dataset.swatch;
+    applyTheme(next);
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch {
+      // Not being able to remember the choice is not worth interrupting anyone over.
+    }
+  });
+
+  // Only meaningful while no explicit choice is stored.
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (!document.documentElement.hasAttribute('data-theme')) applyTheme(null);
+  });
+}
 
 // ---- helpers --------------------------------------------------------------
 
@@ -126,11 +191,11 @@ function renderDetail(a) {
   if (!available) {
     action = '<button class="btn" disabled>Not yet available</button>';
   } else if (p && p.state === 'downloading') {
+    // No inline style attribute here: the CSP blocks those, so the width is set
+    // through the CSSOM once the markup is in the document.
     action =
       '<button class="btn secondary" id="cancel">Cancel</button>' +
-      `<div class="meter"><span id="bar" style="width:${
-        p.total ? Math.round((p.received / p.total) * 100) : 0
-      }%"></span></div>`;
+      '<div class="meter"><span id="bar"></span></div>';
   } else if (p && p.state === 'ready') {
     action = '<button class="btn" id="run">Run installer</button>';
   } else {
@@ -192,6 +257,12 @@ function renderDetail(a) {
 
   const run = view.querySelector('#run');
   if (run) run.addEventListener('click', () => runInstaller(a.id));
+
+  // Restore the meter position for a download already in flight.
+  const bar = view.querySelector('#bar');
+  if (bar && p && p.total) {
+    bar.style.width = `${Math.round((p.received / p.total) * 100)}%`;
+  }
 
   document.getElementById('detail-name').focus();
 }
@@ -334,6 +405,8 @@ window.nullprice.onReady(({ id, bytes }) => {
 });
 
 (async function boot() {
+  initTheme();
+
   try {
     const data = await window.nullprice.loadCatalogue();
     feed = data.feed;

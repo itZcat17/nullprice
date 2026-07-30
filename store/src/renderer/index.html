@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
   <title>Nullprice</title>
@@ -24,6 +25,21 @@
 
     <div class="sidebar-foot">
       <p>Every tool is free. No account, no telemetry, nothing uploaded.</p>
+
+      <div class="themes">
+        <span class="themes-label" id="themes-label">Theme</span>
+        <div class="swatches" id="swatches" role="group" aria-labelledby="themes-label">
+          <button type="button" class="swatch" data-swatch="light"
+                  aria-pressed="false" title="Light" aria-label="Light theme"></button>
+          <button type="button" class="swatch" data-swatch="graphite"
+                  aria-pressed="false" title="Graphite" aria-label="Graphite theme"></button>
+          <button type="button" class="swatch" data-swatch="ledger"
+                  aria-pressed="false" title="Ledger" aria-label="Ledger theme"></button>
+          <button type="button" class="swatch" data-swatch="blueprint"
+                  aria-pressed="false" title="Blueprint" aria-label="Blueprint theme"></button>
+        </div>
+        <span class="theme-name" id="theme-name"></span>
+      </div>
     </div>
   </nav>
 
