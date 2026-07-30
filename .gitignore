@@ -14,6 +14,12 @@ store/dist/
 store/feed/*.exe
 store/feed/*.pdb
 
+# Published app binaries and archives — rebuildable from source, hundreds of MB
+apps/**/dist/
+apps/**/portable/
+apps/**/*.exe
+apps/**/*.zip
+
 # OS
 Thumbs.db
 desktop.ini

@@ -1,0 +1,88 @@
+<Window x:Class="Nullprice.Carry.App.ReviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choose apps and review inactive items" Width="920" Height="660"
+        MinWidth="760" MinHeight="520" WindowStartupLocation="CenterOwner"
+        Background="#F3F5F9" FontFamily="Segoe UI" Foreground="#18202B">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Review what to carry" FontSize="24" FontWeight="SemiBold"/>
+            <TextBlock x:Name="SummaryText" Text="Detecting reinstallable apps and inactive files…"
+                       Foreground="#687385" Margin="0,5,0,3"/>
+            <TextBlock x:Name="SizeText" Text="Calculating estimated size…"
+                       Foreground="#4C66E8" FontWeight="SemiBold" Margin="0,0,0,14"/>
+        </StackPanel>
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="Apps">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Tick apps to reinstall. “Possibly inactive” is an estimate from available Windows launch history."
+                               TextWrapping="Wrap" Foreground="#687385" Margin="0,0,0,10"/>
+                    <DataGrid x:Name="AppsGrid" Grid.Row="1" AutoGenerateColumns="False"
+                              CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
+                              SelectionMode="Extended">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Move" Width="64">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Margin="0" ToolTip="Select with one click"
+                                                  Click="AppSelectionClicked"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="App" Binding="{Binding DisplayName}" IsReadOnly="True" Width="*"/>
+                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" IsReadOnly="True" Width="110"/>
+                            <DataGridTextColumn Header="Data found" Binding="{Binding DataText}" IsReadOnly="True" Width="100"/>
+                            <DataGridTextColumn Header="Install" Binding="{Binding InstallText}" IsReadOnly="True" Width="120"/>
+                            <DataGridTextColumn Header="Estimated last use" Binding="{Binding LastUsedText}"
+                                                IsReadOnly="True" Width="150"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" IsReadOnly="True" Width="145"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Possibly inactive files">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="These files are still copied. This list is for review only because Windows access dates can be incomplete."
+                               TextWrapping="Wrap" Foreground="#687385" Margin="0,0,0,10"/>
+                    <DataGrid x:Name="FilesGrid" Grid.Row="1" AutoGenerateColumns="False"
+                              CanUserAddRows="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="File" Binding="{Binding RelativePath}" Width="*"/>
+                            <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="100"/>
+                            <DataGridTextColumn Header="Last activity" Binding="{Binding LastActivityText}" Width="160"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Select all apps" Click="SelectAllClicked" Padding="12,7"/>
+                <Button Content="Clear apps" Click="ClearClicked" Padding="12,7" Margin="8,0,0,0"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Click="CancelClicked" Padding="16,8" Margin="0,0,8,0"/>
+                <Button x:Name="DoneButton" Content="Use selection" Click="DoneClicked"
+                        Padding="16,8" Background="#4C66E8" Foreground="White" BorderThickness="0"
+                        IsEnabled="False"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
