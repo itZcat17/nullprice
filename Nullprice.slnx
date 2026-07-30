@@ -20,14 +20,4 @@
   <Folder Name="/apps/Ferry/tests/">
     <Project Path="apps/Ferry/tests/Nullprice.Ferry.Core.Tests/Nullprice.Ferry.Core.Tests.csproj" />
   </Folder>
-  <Folder Name="/apps/Carry/" />
-  <Folder Name="/apps/Carry/app/">
-    <Project Path="apps/Carry/app/Nullprice.Carry.App/Nullprice.Carry.App.csproj" />
-  </Folder>
-  <Folder Name="/apps/Carry/src/">
-    <Project Path="apps/Carry/src/Nullprice.Carry.Core/Nullprice.Carry.Core.csproj" />
-  </Folder>
-  <Folder Name="/apps/Carry/tests/">
-    <Project Path="apps/Carry/tests/Nullprice.Carry.Core.Tests/Nullprice.Carry.Core.Tests.csproj" />
-  </Folder>
 </Solution>
