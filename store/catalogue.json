@@ -129,20 +129,28 @@
       "tagline": "Convert, resize, and watermark thousands of images at once.",
       "replaces": "assorted paid converters",
       "theirPrice": "~$30",
-      "status": "planned",
+      "status": "available",
       "requirements": "Windows 10 1809 or later, x64",
       "description": [
-        "Bulk image work is the kind of task people do once a month and pay for reluctantly. Batch builds a pipeline of operations, previews it on a sample, then runs it across an entire folder tree.",
-        "Everything is non-destructive by default: originals are left alone unless you say otherwise."
+        "Bulk image work is the kind of task people do once a month and pay for reluctantly. Batch builds a pipeline of operations, shows you exactly what it would write, then runs it across an entire folder tree.",
+        "Non-destructive is enforced rather than promised: it refuses to run if the output folder is also a source folder, and it refuses to run if two images would resolve to the same output name."
       ],
       "features": [
-        "Chain resize, crop, convert, watermark, and metadata stripping into one pass",
-        "Preview the whole pipeline on a sample before committing",
-        "Output naming templates with counters and original-name tokens",
-        "Metadata stripping for images headed somewhere public",
-        "Saved pipelines for jobs you repeat"
+        "Chain resize, convert, watermark, and metadata stripping into one ordered pass",
+        "Reorder steps, because resizing before watermarking is not the same as after",
+        "Live preview of the resolved output names before anything is written",
+        "Name templates with {name} {n} {n:000} {width} {height} {date}",
+        "Metadata stripping, for images headed somewhere public",
+        "One unreadable file is reported and skipped, not fatal to the run"
       ],
-      "download": null
+      "download": {
+        "version": "0.1.0",
+        "kind": "portable",
+        "filename": "Batch-0.1.0-portable.exe",
+        "url": "./feed/Batch-0.1.0-portable.exe",
+        "sha256": "e17c5fdc8c886b99f9f385bb66a2d2d1382af0dae851f2650772728365cc9c3e",
+        "size": 139647981
+      }
     },
     {
       "id": "clip",

@@ -21,6 +21,7 @@ apps/Ferry/
   src/Nullprice.Ferry.Core/        engine — no UI dependency, fully testable
   tests/Nullprice.Ferry.Core.Tests/
   app/Nullprice.Ferry.App/         WPF shell
+apps/Carry/                         laptop migration — Documents + VS Code
 ```
 
 Every component follows the same shape: the logic lives in a module with no UI or
@@ -36,6 +37,7 @@ Requires the .NET 10 SDK and Node 20 or later.
 dotnet build Nullprice.slnx
 dotnet test  Nullprice.slnx
 dotnet run --project apps/Ferry/app/Nullprice.Ferry.App
+dotnet run --project apps/Carry/app/Nullprice.Carry.App
 
 # the store
 cd store
@@ -68,18 +70,22 @@ Remove-Item env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 
 ### Rebuilding the local test feed
 
-`store/feed/` is gitignored because it holds large binaries. To recreate it:
+`store/feed/` is gitignored because it holds large binaries. To recreate an entry:
 
 ```powershell
+# Ferry
 dotnet publish apps/Ferry/app/Nullprice.Ferry.App/Nullprice.Ferry.App.csproj `
-  -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o store/feed
-Remove-Item store/feed/*.pdb
-Move-Item store/feed/Nullprice.Ferry.App.exe store/feed/Ferry-0.1.0-portable.exe -Force
+  -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o store/feed/tmp
+Move-Item store/feed/tmp/Nullprice.Ferry.App.exe store/feed/Ferry-0.1.0-portable.exe -Force
+Remove-Item store/feed/tmp -Recurse -Force
 (Get-FileHash store/feed/Ferry-0.1.0-portable.exe -Algorithm SHA256).Hash.ToLower()
+
+# Batch — same shape, swap the project and output name
 ```
 
-Put that hash and the file's byte size into `catalogue.json`. The tests will fail loudly if
-they disagree.
+Put that hash and the file's byte size into `catalogue.json`. The store tests assert that
+anything marked `available` has a real 64-character checksum and a non-zero size, so a
+stale entry fails loudly rather than shipping a broken download.
 
 ## The store
 
@@ -104,16 +110,22 @@ local feed works. Production entries use absolute `https://` URLs.
 
 | Tool | Does | Replaces | Their price | Status |
 | --- | --- | --- | --- | --- |
-| Ferry | Verified file copy | TeraCopy Pro | ~$25 | In development |
+| Ferry | Verified file copy | TeraCopy Pro | ~$25 | **Built** |
+| Batch | Bulk image conversion | assorted | ~$30 | **Built** |
 | Capture | Screen capture and annotation | Snagit | $39/yr | Planned |
 | Sheaf | Local PDF merge, split, compress | Acrobat Standard | ~$155/yr | Planned |
 | Compare | File and folder diff | Beyond Compare | $34.30 | Planned |
 | Expand | Text expansion and snippets | PhraseExpress | ~$50 | Planned |
-| Batch | Bulk image conversion | assorted | ~$30 | Planned |
 | Clip | Searchable clipboard history | ClipboardFusion Pro | ~$25 | Planned |
 | Purge | Uninstaller with leftover cleanup | Revo Uninstaller Pro | $24.95 | Planned |
 | Corral | Desktop icon grouping | Stardock Fences | $29.99 | Planned |
 | Span | Multi-monitor taskbars and layouts | DisplayFusion | $34 | Planned |
+
+Nine tools cannot be built at once, and the reason is that each one's hard part is a
+different specialist problem: an annotation editor for Capture, a PDF content-stream
+writer for Sheaf, a global keyboard hook for Expand, AppBar APIs for Span, drawing over
+the Explorer desktop for Corral. Batch was built second because it is the only one whose
+hard part is ordinary.
 
 Prices are as of July 2026; a tilde means approximate. Verified from vendor or reseller
 listings: Snagit, Beyond Compare, Fences, DisplayFusion. The rest are estimates and should
@@ -156,6 +168,37 @@ Other decisions worth knowing:
 16 tests, all passing. They cover round-trip integrity, folder structure preservation, all
 four conflict policies, cancellation leaving no partial files, progress reaching totals,
 empty files, missing sources, and locale-correct size formatting.
+
+## Batch
+
+Ordered image pipeline over a folder tree. Resize, convert, watermark, strip metadata.
+
+`Nullprice.Batch.Core` holds the whole model with no imaging dependency at all — even the
+resize arithmetic, so `ResolveFor` is unit-tested without decoding a pixel. The one thing
+Core cannot do is turn pixels into other pixels, which is behind `IImageProcessor`. The
+real implementation uses Windows Imaging Component via WPF: it ships with Windows, is
+hardware accelerated, and adds no dependency or licence to a tool being given away.
+
+"Non-destructive by default" is enforced rather than promised. `BatchPlanner` refuses to
+build a runnable plan when:
+
+- the output folder is also a source folder, or
+- two inputs would resolve to the same output name — with the fix named in the message
+  ("add `{n}` to the name template").
+
+Both are ways to destroy someone's photographs, so both are tested rather than trusted to
+the UI. Order in the pipeline is never rearranged automatically, because resizing before
+watermarking gives a different result from the reverse.
+
+Two smaller decisions worth knowing:
+
+- An unknown token like `{nope}` is left **visible** in the output name rather than
+  dropped. Silently dropping it would collapse every file onto one name.
+- Files are written to a `.part` neighbour and moved into place, so an interrupted run
+  never leaves a truncated image that looks finished.
+
+33 tests cover naming, resize arithmetic, pipeline ordering, both plan guards, cancellation,
+and the promise that sources are byte-identical afterwards.
 
 ## Known gaps
 

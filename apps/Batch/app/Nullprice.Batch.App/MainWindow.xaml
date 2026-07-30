@@ -1,0 +1,162 @@
+<Window x:Class="Nullprice.Batch.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Batch" Height="720" Width="1000"
+        MinHeight="560" MinWidth="820"
+        Background="#EEF0F1"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        FontSize="13">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Ink" Color="#12171A" />
+        <SolidColorBrush x:Key="InkSoft" Color="#5A656C" />
+        <SolidColorBrush x:Key="Line" Color="#DCE1E4" />
+        <SolidColorBrush x:Key="Accent" Color="#12674A" />
+        <SolidColorBrush x:Key="Warn" Color="#A8442B" />
+
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#C3CBD0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource Ink}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{StaticResource Accent}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="16,8" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkSoft}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="BATCH" FontFamily="Segoe UI Variable Display, Segoe UI"
+                       FontSize="22" FontWeight="Bold" Foreground="{StaticResource Ink}" />
+            <TextBlock Text="Convert, resize, and watermark whole folders. Originals are never modified."
+                       Foreground="{StaticResource InkSoft}" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="1.15*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- left: sources and output -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="SOURCES" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button x:Name="AddFilesButton" Content="Add images…" Click="OnAddFiles" Margin="0,0,7,0" />
+                        <Button x:Name="AddFolderButton" Content="Add folder…" Click="OnAddFolder" Margin="0,0,7,0" />
+                        <Button x:Name="ClearButton" Content="Clear" Click="OnClearSources" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Row="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="White">
+                    <ListBox x:Name="SourceList" BorderThickness="0" Background="Transparent"
+                             FontFamily="Cascadia Mono, Consolas" FontSize="11" />
+                </Border>
+
+                <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                    <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Button x:Name="OutputButton" Content="Choose folder…" Click="OnChooseOutput" />
+                    </StackPanel>
+                    <TextBlock x:Name="OutputText" Text="No output folder chosen"
+                               FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                               TextWrapping="Wrap" Foreground="{StaticResource InkSoft}" />
+
+                    <TextBlock Text="NAME TEMPLATE" Style="{StaticResource FieldLabel}" Margin="0,14,0,6" />
+                    <TextBox x:Name="TemplateBox" Text="{}{name}" Padding="7,5"
+                             FontFamily="Cascadia Mono, Consolas" FontSize="12"
+                             BorderBrush="{StaticResource Line}" TextChanged="OnPipelineChanged" />
+                    <TextBlock Text="{}{name} {n} {n:000} {width} {height} {date}"
+                               FontFamily="Cascadia Mono, Consolas" FontSize="10.5"
+                               Foreground="{StaticResource InkSoft}" Margin="0,5,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <!-- right: pipeline and preview -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="PIPELINE — ORDER MATTERS" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Resize…" Click="OnAddResize" Margin="0,0,7,0" />
+                        <Button Content="Convert…" Click="OnAddConvert" Margin="0,0,7,0" />
+                        <Button Content="Watermark…" Click="OnAddWatermark" Margin="0,0,7,0" />
+                        <Button Content="Strip metadata" Click="OnAddStrip" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Row="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="White">
+                    <ListBox x:Name="PipelineList" BorderThickness="0" Background="Transparent"
+                             FontFamily="Cascadia Mono, Consolas" FontSize="11" />
+                </Border>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,14">
+                    <Button Content="Move up" Click="OnMoveUp" Margin="0,0,7,0" />
+                    <Button Content="Move down" Click="OnMoveDown" Margin="0,0,7,0" />
+                    <Button Content="Remove" Click="OnRemoveStep" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="3">
+                    <TextBlock Text="PREVIEW — FIRST FIVE OUTPUTS" Style="{StaticResource FieldLabel}" />
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="1" Background="White">
+                        <ListBox x:Name="PreviewList" BorderThickness="0" Background="Transparent"
+                                 FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Margin="0,16,0,14">
+            <ProgressBar x:Name="Bar" Height="6" Minimum="0" Maximum="1"
+                         Foreground="{StaticResource Accent}" Background="#DCE1E4" BorderThickness="0" />
+            <TextBlock x:Name="StatusText" Text="Add images and choose an output folder."
+                       Margin="0,8,0,0" TextWrapping="Wrap"
+                       FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                       Foreground="{StaticResource InkSoft}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal">
+            <Button x:Name="RunButton" Content="Run batch" Style="{StaticResource Primary}"
+                    Click="OnRun" Margin="0,0,8,0" />
+            <Button x:Name="CancelButton" Content="Cancel" Click="OnCancel" IsEnabled="False" Margin="0,0,8,0" />
+            <Button x:Name="OpenOutputButton" Content="Open output folder" Click="OnOpenOutput" />
+        </StackPanel>
+    </Grid>
+</Window>
