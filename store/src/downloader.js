@@ -42,6 +42,14 @@ async function downloadRelease(release, destDir, onProgress = () => {}, signal =
     },
   });
 
+  // GitHub publishes no checksum for release assets, so a release may instead point at a
+  // sibling .sha256 file. Fetch it before the payload: discovering afterwards that the
+  // expected hash is unreachable would mean having already written an unverifiable binary.
+  let expected = String(release.sha256 || '').toLowerCase();
+  if (!expected && release.sha256Url) {
+    expected = await fetchChecksum(release.sha256Url, signal);
+  }
+
   const source = await openSource(release, signal);
 
   try {
@@ -52,7 +60,6 @@ async function downloadRelease(release, destDir, onProgress = () => {}, signal =
   }
 
   const actual = hasher.digest('hex');
-  const expected = String(release.sha256 || '').toLowerCase();
 
   if (expected && actual !== expected) {
     // A binary that failed verification is deleted, not quarantined. Unlike a user's
@@ -69,6 +76,26 @@ async function downloadRelease(release, destDir, onProgress = () => {}, signal =
   await fsp.rename(partial, target);
 
   return { path: target, sha256: actual, bytes: received, verified: Boolean(expected) };
+}
+
+/**
+ * Reads a published checksum file. These hold either a bare hex digest or the usual
+ * "&lt;hash&gt;  &lt;filename&gt;" pair, so only the first token is taken.
+ */
+async function fetchChecksum(url, signal) {
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    throw new Error(`Could not read the published checksum (${response.status}).`);
+  }
+
+  const text = (await response.text()).trim();
+  const digest = text.split(/\s+/)[0].toLowerCase();
+
+  if (!/^[0-9a-f]{64}$/.test(digest)) {
+    throw new Error('The published checksum file was not a SHA-256 digest.');
+  }
+
+  return digest;
 }
 
 async function openSource(release, signal) {

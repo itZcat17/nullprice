@@ -14,6 +14,13 @@ public sealed class ReviewService
         CancellationToken cancellationToken = default) =>
         Task.Run(() => DirectorySize(path, cancellationToken), cancellationToken);
 
+    public Task<long> CalculateAppDataSizeAsync(
+        AppPackage package,
+        CancellationToken cancellationToken = default) =>
+        Task.Run(() => CalculateDataSize(
+            package.DataFolders ?? [], new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
+            cancellationToken), cancellationToken);
+
     public async Task<IReadOnlyList<AppPackage>> DiscoverReinstallableAppsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -22,14 +29,14 @@ public sealed class ReviewService
         {
             var result = await RunAsync("winget.exe",
                 $"export --output \"{exportPath}\" --include-versions --accept-source-agreements --disable-interactivity",
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0 || !File.Exists(exportPath))
                 throw new InvalidOperationException(
                     "Windows Package Manager could not list reinstallable apps. " + result.Error.Trim());
 
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(exportPath, cancellationToken));
+            using var document = JsonDocument.Parse(
+                await File.ReadAllTextAsync(exportPath, cancellationToken).ConfigureAwait(false));
             var registryApps = ReadInstalledApps();
-            var sizeCache = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
             var packages = new List<AppPackage>();
             foreach (var source in document.RootElement.GetProperty("Sources").EnumerateArray())
             foreach (var package in source.GetProperty("Packages").EnumerateArray())
@@ -43,7 +50,7 @@ public sealed class ReviewService
                 var dataFolders = FindAppDataFolders(id, displayName);
                 packages.Add(new(id, displayName, version, lastUsed,
                     lastUsed is null ? "No reliable launch history found" : "Estimated from Windows launch history",
-                    dataFolders, DataSizeBytes: CalculateDataSize(dataFolders, sizeCache, cancellationToken)));
+                    dataFolders));
             }
             var matchedNames = packages.Select(x => Normalize(x.DisplayName))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -56,8 +63,7 @@ public sealed class ReviewService
                 var dataFolders = FindAppDataFolders(id, registryApp.DisplayName);
                 packages.Add(new(id, registryApp.DisplayName, null, lastUsed,
                     lastUsed is null ? "No reliable launch history found" : "Estimated from Windows launch history",
-                    dataFolders, CanReinstall: false,
-                    DataSizeBytes: CalculateDataSize(dataFolders, sizeCache, cancellationToken)));
+                    dataFolders, CanReinstall: false));
             }
 
             return packages
@@ -81,15 +87,21 @@ public sealed class ReviewService
         {
             var cutoff = DateTimeOffset.Now.AddMonths(-months);
             var found = new List<InactiveFile>();
+            long inactiveFileCount = 0;
             long totalFiles = 0;
             long totalBytes = 0;
+            var progressTimer = Stopwatch.StartNew();
             var pending = new Stack<string>();
             pending.Push(root);
             while (pending.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var directory = pending.Pop();
-                progress?.Report(directory);
+                if (progressTimer.ElapsedMilliseconds >= 250)
+                {
+                    progress?.Report(directory);
+                    progressTimer.Restart();
+                }
                 try
                 {
                     foreach (var path in Directory.GetFiles(directory))
@@ -104,7 +116,11 @@ public sealed class ReviewService
                                 info.LastAccessTimeUtc > info.LastWriteTimeUtc
                                     ? info.LastAccessTimeUtc : info.LastWriteTimeUtc, TimeSpan.Zero);
                             if (activity < cutoff)
-                                found.Add(new(path, Path.GetRelativePath(root, path), info.Length, activity));
+                            {
+                                inactiveFileCount++;
+                                if (found.Count < 10_000)
+                                    found.Add(new(path, Path.GetRelativePath(root, path), info.Length, activity));
+                            }
                         }
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
                     }
@@ -121,7 +137,8 @@ public sealed class ReviewService
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
             return new FileReviewResult(
-                found.OrderBy(x => x.LastActivity).ToArray(), totalFiles, totalBytes);
+                found.OrderBy(x => x.LastActivity).ToArray(),
+                inactiveFileCount, totalFiles, totalBytes);
         }, cancellationToken);
     }
 

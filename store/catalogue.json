@@ -2,7 +2,9 @@
   "feed": {
     "version": 1,
     "updated": "2026-07-30",
-    "note": "Relative download URLs beginning with ./ are resolved against this file and are used for local testing. Production entries use absolute https URLs."
+    "note": "Relative download URLs beginning with ./ are resolved against this file and are used for local testing. Production entries use absolute https URLs.",
+    "updates": "Each app has its own GitHub repository and its own releases, so shipping a fix to one never means re-releasing the others. Set provider to github and fill in owner/repo to go live; provider local pins the app to the release recorded here.",
+    "githubOwner": "REPLACE-ME"
   },
   "apps": [
     {
@@ -25,6 +27,12 @@
         "Cancel without leaving a truncated file that looks complete",
         "Honest progress: the whole transfer is measured before a byte moves"
       ],
+      "updates": {
+        "provider": "local",
+        "owner": "REPLACE-ME",
+        "repo": "nullprice-ferry",
+        "assetPattern": "Ferry-*-setup.exe"
+      },
       "download": {
         "version": "0.1.0",
         "kind": "portable",
@@ -143,6 +151,12 @@
         "Metadata stripping, for images headed somewhere public",
         "One unreadable file is reported and skipped, not fatal to the run"
       ],
+      "updates": {
+        "provider": "local",
+        "owner": "REPLACE-ME",
+        "repo": "nullprice-batch",
+        "assetPattern": "Batch-*-setup.exe"
+      },
       "download": {
         "version": "0.1.0",
         "kind": "portable",

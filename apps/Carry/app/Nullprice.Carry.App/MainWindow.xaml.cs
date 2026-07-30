@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _cancellation;
     private IReadOnlyList<AppPackage> _selectedApps = [];
     private bool _reviewCompleted;
+    private readonly List<string> _additionalFolders = [];
+    private IReadOnlyList<string> _excludedDocumentFiles = [];
 
     public MainWindow()
     {
@@ -32,6 +34,7 @@ public partial class MainWindow : Window
         AppsRow.Visibility = IsRestore ? Visibility.Collapsed : Visibility.Visible;
         InactivityRow.Visibility = IsRestore ? Visibility.Collapsed : Visibility.Visible;
         ComponentsNote.Visibility = IsRestore ? Visibility.Collapsed : Visibility.Visible;
+        AdditionalFoldersRow.Visibility = IsRestore ? Visibility.Collapsed : Visibility.Visible;
         PathBox.Clear();
         ResetStatus();
     }
@@ -56,7 +59,7 @@ public partial class MainWindow : Window
             return;
         }
         if (!IsRestore && DocumentsCheck.IsChecked != true && VsCodeCheck.IsChecked != true &&
-            AppsCheck.IsChecked != true)
+            AppsCheck.IsChecked != true && _additionalFolders.Count == 0)
         {
             System.Windows.MessageBox.Show("Select at least one thing to carry.", "Carry",
                 MessageBoxButton.OK, MessageBoxImage.Information);
@@ -66,7 +69,7 @@ public partial class MainWindow : Window
         {
             if (!ShowReview()) return;
             if (DocumentsCheck.IsChecked != true && VsCodeCheck.IsChecked != true &&
-                _selectedApps.Count == 0)
+                _selectedApps.Count == 0 && _additionalFolders.Count == 0)
             {
                 System.Windows.MessageBox.Show("Select at least one thing to carry.", "Carry",
                     MessageBoxButton.OK, MessageBoxImage.Information);
@@ -90,7 +93,9 @@ public partial class MainWindow : Window
             VsCodeCheck.IsChecked == true,
             OverwriteCheck.IsChecked == true,
             _selectedApps,
-            SelectedInactivityMonths);
+            SelectedInactivityMonths,
+            _additionalFolders,
+            _excludedDocumentFiles);
 
         try
         {
@@ -100,6 +105,7 @@ public partial class MainWindow : Window
 
             StatusText.Text = IsRestore ? "Restore complete" : "Transfer ready";
             ItemText.Text = $"{result.FilesCopied:N0} files • {FormatSize(result.BytesCopied)} • {result.Duration:mm\\:ss}";
+            ProgressBar.IsIndeterminate = false;
             ProgressBar.Value = 100;
             ProgressText.Text = result.Warnings.Count == 0
                 ? "Completed without warnings"
@@ -139,15 +145,50 @@ public partial class MainWindow : Window
 
     private void ReviewClicked(object sender, RoutedEventArgs e) => ShowReview();
 
+    private void CableModeClicked(object sender, RoutedEventArgs e) =>
+        new CableWindow { Owner = this }.ShowDialog();
+
+    private void AddFolderClicked(object sender, RoutedEventArgs e)
+    {
+        var picker = new OpenFolderDialog
+        {
+            Title = "Choose an additional folder to carry",
+            Multiselect = false
+        };
+        if (picker.ShowDialog(this) != true) return;
+        var path = Path.GetFullPath(picker.FolderName);
+        if (!_additionalFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+            _additionalFolders.Add(path);
+        _reviewCompleted = false;
+        UpdateAdditionalFoldersText();
+    }
+
+    private void ClearFoldersClicked(object sender, RoutedEventArgs e)
+    {
+        _additionalFolders.Clear();
+        _reviewCompleted = false;
+        UpdateAdditionalFoldersText();
+    }
+
+    private void UpdateAdditionalFoldersText()
+    {
+        AdditionalFoldersText.Text = _additionalFolders.Count == 0
+            ? "None selected"
+            : $"{_additionalFolders.Count:N0} selected: " +
+              string.Join(", ", _additionalFolders.Select(Path.GetFileName));
+    }
+
     private bool ShowReview()
     {
         var review = new ReviewWindow(_service.DocumentsPath, SelectedInactivityMonths, _selectedApps,
-            DocumentsCheck.IsChecked == true, VsCodeCheck.IsChecked == true, _service.VsCodeUserPath)
+            DocumentsCheck.IsChecked == true, VsCodeCheck.IsChecked == true, _service.VsCodeUserPath,
+            _additionalFolders, _excludedDocumentFiles)
         {
             Owner = this
         };
         if (review.ShowDialog() != true) return false;
         _selectedApps = review.SelectedApps;
+        _excludedDocumentFiles = review.ExcludedFiles;
         _reviewCompleted = true;
         AppsCheck.IsChecked = _selectedApps.Count > 0;
         AppsCheck.Content = _selectedApps.Count == 0
@@ -180,7 +221,9 @@ public partial class MainWindow : Window
         else
         {
             ProgressBar.IsIndeterminate = true;
-            ProgressText.Text = "";
+            ProgressText.Text = value.FilesCompleted > 0
+                ? $"{value.FilesCompleted:N0} files found • {FormatSize(value.BytesCompleted)}"
+                : "";
         }
     }
 

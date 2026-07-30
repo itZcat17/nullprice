@@ -16,6 +16,15 @@ extraResources:
   - from: catalogue.json
     to: catalogue.json
 
+# The store updates itself through its own GitHub releases, exactly like the tools it
+# installs. Replace owner before the first publish; electron-updater reads this to build
+# the latest.yml feed URL.
+publish:
+  - provider: github
+    owner: REPLACE-ME
+    repo: nullprice
+    releaseType: release
+
 win:
   target:
     - target: nsis

@@ -9,6 +9,7 @@ public sealed class MigrationService
     private const string AppsFileName = "selected-apps.json";
     private const string ComponentsFileName = "system-components.json";
     private const string InactiveFilesName = "possibly-inactive-files.csv";
+    private const string AdditionalFoldersFileName = "additional-folders.json";
 
     public string DocumentsPath { get; }
     public string VsCodeUserPath { get; }
@@ -42,7 +43,9 @@ public sealed class MigrationService
         IProgress<MigrationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        if (!options.IncludeDocuments && !options.IncludeVsCode && (options.SelectedApps?.Count ?? 0) == 0)
+        if (!options.IncludeDocuments && !options.IncludeVsCode &&
+            (options.SelectedApps?.Count ?? 0) == 0 &&
+            (options.AdditionalFolders?.Count ?? 0) == 0)
             throw new ArgumentException("Select at least one item to back up.", nameof(options));
         if (string.IsNullOrWhiteSpace(destinationRoot))
             throw new ArgumentException("Choose a destination folder.", nameof(destinationRoot));
@@ -57,6 +60,7 @@ public sealed class MigrationService
         var packagePath = GetUniqueDirectory(Path.Combine(Path.GetFullPath(destinationRoot), packageName));
 
         var sources = new List<CopyRoot>();
+        var additionalMappings = new List<AdditionalFolderMapping>();
         if (options.IncludeDocuments)
         {
             if (Directory.Exists(DocumentsPath))
@@ -82,9 +86,42 @@ public sealed class MigrationService
             else
                 warnings.Add($"App data was not found for {app.DisplayName}: {source}");
         }
+        var userProfile = Path.GetFullPath(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        var additionalFolders = (options.AdditionalFolders ?? [])
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        for (var i = 0; i < additionalFolders.Length; i++)
+        {
+            var source = additionalFolders[i];
+            if (!Directory.Exists(source))
+            {
+                warnings.Add($"Additional folder was not found: {source}");
+                continue;
+            }
+            var packageFolder = Path.Combine("Additional",
+                $"{i + 1:D2}-{SafeName(Path.GetFileName(Path.TrimEndingDirectorySeparator(source)))}");
+            var profileRelative = IsInside(userProfile, source)
+                ? Path.GetRelativePath(userProfile, source)
+                : null;
+            additionalMappings.Add(new(source, packageFolder, profileRelative));
+            sources.Add(new(source, Path.Combine(packagePath, packageFolder)));
+        }
 
         Directory.CreateDirectory(packagePath);
-        var files = Scan(sources, packagePath, warnings, cancellationToken);
+        progress?.Report(new("Scanning", "Documents and selected app data", 0, 0, 0, 0));
+        var files = await Task.Run(
+            () => Scan(sources, packagePath, warnings, cancellationToken, progress), cancellationToken)
+            .ConfigureAwait(false);
+        if ((options.ExcludedDocumentFiles?.Count ?? 0) > 0)
+        {
+            var excluded = options.ExcludedDocumentFiles!
+                .Select(Path.GetFullPath)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            files = files.Where(file => !excluded.Contains(Path.GetFullPath(file.Source))).ToList();
+        }
         var totalBytes = files.Sum(f => f.Length);
         var cutoff = DateTimeOffset.Now.AddMonths(-options.InactivityMonths);
         var inactiveFiles = files
@@ -92,7 +129,7 @@ public sealed class MigrationService
             .ToArray();
         progress?.Report(new("Preparing", "Transfer plan ready", 0, files.Count, 0, totalBytes));
 
-        var copied = await CopyFilesAsync(files, overwrite: true, progress, cancellationToken);
+        var copied = await CopyFilesAsync(files, overwrite: true, warnings, progress, cancellationToken);
         if (options.IncludeVsCode)
             await ExportExtensionsAsync(Path.Combine(packagePath, "VSCode", "extensions.txt"), warnings, cancellationToken);
         if (selectedApps.Count > 0)
@@ -101,6 +138,9 @@ public sealed class MigrationService
         if (systemComponents.Count > 0)
             await File.WriteAllTextAsync(Path.Combine(packagePath, ComponentsFileName),
                 JsonSerializer.Serialize(systemComponents, JsonOptions), cancellationToken);
+        if (additionalMappings.Count > 0)
+            await File.WriteAllTextAsync(Path.Combine(packagePath, AdditionalFoldersFileName),
+                JsonSerializer.Serialize(additionalMappings, JsonOptions), cancellationToken);
 
         if (inactiveFiles.Length > 0)
             await WriteInactiveReportAsync(Path.Combine(packagePath, InactiveFilesName),
@@ -114,7 +154,8 @@ public sealed class MigrationService
             IncludesVsCode = options.IncludeVsCode,
             SelectedAppCount = selectedApps.Count,
             SystemComponentCount = systemComponents.Count,
-            InactiveFileCount = inactiveFiles.Length
+            InactiveFileCount = inactiveFiles.Length,
+            AdditionalFolderCount = additionalMappings.Count
         };
         await File.WriteAllTextAsync(
             Path.Combine(packagePath, MigrationManifest.FileName),
@@ -157,11 +198,31 @@ public sealed class MigrationService
         var vsCodeSource = Path.Combine(packagePath, "VSCode", "User");
         if (options.IncludeVsCode && Directory.Exists(vsCodeSource))
             roots.Add(new(vsCodeSource, VsCodeUserPath));
+        var additionalPath = Path.Combine(packagePath, AdditionalFoldersFileName);
+        if (File.Exists(additionalPath))
+        {
+            var mappings = JsonSerializer.Deserialize<AdditionalFolderMapping[]>(
+                await File.ReadAllTextAsync(additionalPath, cancellationToken), JsonOptions) ?? [];
+            foreach (var mapping in mappings)
+            {
+                var source = Path.GetFullPath(Path.Combine(packagePath, mapping.PackageFolder));
+                if (!IsInside(packagePath, source))
+                {
+                    warnings.Add($"Skipped unsafe additional-folder mapping: {mapping.OriginalPath}");
+                    continue;
+                }
+                if (Directory.Exists(source))
+                    roots.Add(new(source, ResolveAdditionalDestination(mapping)));
+            }
+        }
 
-        var files = Scan(roots, packagePath: null, warnings, cancellationToken);
+        progress?.Report(new("Scanning", "Backup contents", 0, 0, 0, 0));
+        var files = await Task.Run(
+            () => Scan(roots, packagePath: null, warnings, cancellationToken, progress), cancellationToken)
+            .ConfigureAwait(false);
         var totalBytes = files.Sum(f => f.Length);
         progress?.Report(new("Preparing", "Restore plan ready", 0, files.Count, 0, totalBytes));
-        var copied = await CopyFilesAsync(files, options.OverwriteExisting, progress, cancellationToken);
+        var copied = await CopyFilesAsync(files, options.OverwriteExisting, warnings, progress, cancellationToken);
 
         await ImportSystemComponentsAsync(
             Path.Combine(packagePath, ComponentsFileName), warnings, progress, cancellationToken);
@@ -175,12 +236,14 @@ public sealed class MigrationService
             if (Directory.Exists(source))
                 appRoots.Add(new(source, ResolveAppDataPath(folder)));
         }
-        var appFiles = Scan(appRoots, packagePath: null, warnings, cancellationToken);
+        var appFiles = await Task.Run(
+            () => Scan(appRoots, packagePath: null, warnings, cancellationToken, progress), cancellationToken)
+            .ConfigureAwait(false);
         if (appFiles.Count > 0)
         {
             progress?.Report(new("Restoring app profiles", "Preparing app data",
                 0, appFiles.Count, 0, appFiles.Sum(x => x.Length)));
-            var appCopied = await CopyFilesAsync(appFiles, overwrite: true, progress, cancellationToken);
+            var appCopied = await CopyFilesAsync(appFiles, overwrite: true, warnings, progress, cancellationToken);
             copied = (copied.Files + appCopied.Files, copied.Bytes + appCopied.Bytes);
         }
         if (options.IncludeVsCode)
@@ -204,9 +267,12 @@ public sealed class MigrationService
         IEnumerable<CopyRoot> roots,
         string? packagePath,
         List<string> warnings,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<MigrationProgress>? progress = null)
     {
         var result = new List<CopyFile>();
+        long discoveredBytes = 0;
+        var reportTimer = Stopwatch.StartNew();
         foreach (var root in roots)
         {
             if (packagePath is not null && IsInside(root.Source, packagePath))
@@ -221,6 +287,13 @@ public sealed class MigrationService
                     {
                         var info = new FileInfo(path);
                         result.Add(new(path, Path.Combine(root.Destination, Path.GetRelativePath(root.Source, path)), info.Length));
+                        discoveredBytes += info.Length;
+                        if (reportTimer.ElapsedMilliseconds >= 200)
+                        {
+                            progress?.Report(new("Scanning", path, result.Count, 0,
+                                discoveredBytes, 0));
+                            reportTimer.Restart();
+                        }
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
@@ -233,6 +306,7 @@ public sealed class MigrationService
                 warnings.Add($"Could not fully scan {root.Source}: {ex.Message}");
             }
         }
+        progress?.Report(new("Scanning", "Scan complete", result.Count, 0, discoveredBytes, 0));
         return result;
     }
 
@@ -284,11 +358,14 @@ public sealed class MigrationService
     private static async Task<(long Files, long Bytes)> CopyFilesAsync(
         IReadOnlyList<CopyFile> files,
         bool overwrite,
+        List<string> warnings,
         IProgress<MigrationProgress>? progress,
         CancellationToken cancellationToken)
     {
-        long filesDone = 0;
-        long bytesDone = 0;
+        long processedFiles = 0;
+        long processedBytes = 0;
+        long copiedFiles = 0;
+        long copiedBytes = 0;
         var totalBytes = files.Sum(f => f.Length);
         var buffer = new byte[1024 * 1024];
 
@@ -297,19 +374,21 @@ public sealed class MigrationService
             cancellationToken.ThrowIfCancellationRequested();
             if (File.Exists(file.Destination) && !overwrite)
             {
-                filesDone++;
-                bytesDone += file.Length;
+                processedFiles++;
+                processedBytes += file.Length;
                 progress?.Report(new("Copying", $"Kept existing: {Path.GetFileName(file.Destination)}",
-                    filesDone, files.Count, bytesDone, totalBytes));
+                    processedFiles, files.Count, processedBytes, totalBytes));
                 continue;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(file.Destination)!);
             var partial = file.Destination + ".carrypart";
+            long fileBytesRead = 0;
             try
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(file.Destination)!);
                 {
-                    await using var input = new FileStream(file.Source, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    await using var input = new FileStream(file.Source, FileMode.Open, FileAccess.Read,
+                        FileShare.ReadWrite | FileShare.Delete,
                         buffer.Length, FileOptions.Asynchronous | FileOptions.SequentialScan);
                     await using var output = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None,
                         buffer.Length, FileOptions.Asynchronous | FileOptions.SequentialScan);
@@ -317,23 +396,45 @@ public sealed class MigrationService
                     while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
                     {
                         await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                        bytesDone += read;
-                        progress?.Report(new("Copying", file.Source, filesDone, files.Count, bytesDone, totalBytes));
+                        fileBytesRead += read;
+                        processedBytes += read;
+                        progress?.Report(new("Copying", file.Source, processedFiles, files.Count,
+                            processedBytes, totalBytes));
                     }
                     await output.FlushAsync(cancellationToken);
                 }
                 File.Move(partial, file.Destination, true);
                 File.SetLastWriteTimeUtc(file.Destination, File.GetLastWriteTimeUtc(file.Source));
-                filesDone++;
+                processedFiles++;
+                copiedFiles++;
+                copiedBytes += fileBytesRead;
             }
-            catch
+            catch (OperationCanceledException)
             {
                 try { if (File.Exists(partial)) File.Delete(partial); } catch { }
                 throw;
             }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                try { if (File.Exists(partial)) File.Delete(partial); } catch { }
+                if (IsDiskFull(ex)) throw;
+                processedBytes += Math.Max(0, file.Length - fileBytesRead);
+                processedFiles++;
+                warnings.Add($"Skipped file {file.Source}: {ex.Message}");
+                progress?.Report(new("Copying", $"Skipped: {file.Source}", processedFiles,
+                    files.Count, processedBytes, totalBytes));
+            }
         }
 
-        return (filesDone, bytesDone);
+        return (copiedFiles, copiedBytes);
+    }
+
+    private static bool IsDiskFull(Exception exception)
+    {
+        const int ErrorDiskFull = 112;
+        const int ErrorHandleDiskFull = 39;
+        var code = exception.HResult & 0xFFFF;
+        return code is ErrorDiskFull or ErrorHandleDiskFull;
     }
 
     private static async Task ExportExtensionsAsync(string outputPath, List<string> warnings, CancellationToken cancellationToken)
@@ -560,6 +661,17 @@ public sealed class MigrationService
 
     private static string SafeName(string value) =>
         string.Concat(value.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
+
+    private static string ResolveAdditionalDestination(AdditionalFolderMapping mapping)
+    {
+        if (mapping.UserProfileRelativePath is null)
+            return Path.GetFullPath(mapping.OriginalPath);
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var resolved = Path.GetFullPath(Path.Combine(profile, mapping.UserProfileRelativePath));
+        if (!IsInside(profile, resolved))
+            throw new InvalidDataException("An additional folder points outside the user profile.");
+        return resolved;
+    }
 
     private sealed record CopyRoot(string Source, string Destination);
     private sealed record CopyFile(string Source, string Destination, long Length);

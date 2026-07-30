@@ -17,10 +17,15 @@
       <button type="button" data-view="catalogue" aria-current="true">
         Catalogue <span class="count" id="count-catalogue">—</span>
       </button>
-      <button type="button" data-view="downloads">
-        Downloads <span class="count" id="count-downloads">0</span>
+      <button type="button" data-view="installed">
+        Installed <span class="count" id="count-installed">0</span>
       </button>
       <button type="button" data-view="about">About</button>
+    </div>
+
+    <div class="sidebar-action">
+      <button type="button" id="check-updates">Check for updates</button>
+      <span class="check-state" id="check-state"></span>
     </div>
 
     <div class="sidebar-foot">
@@ -44,6 +49,10 @@
   </nav>
 
   <main class="main" id="main">
+    <div class="store-update" id="store-update" hidden>
+      Nullprice has downloaded an update for itself. It will apply when you close the app.
+    </div>
+
     <section class="view" id="view-catalogue">
       <div class="page-head">
         <h1>Catalogue</h1>
@@ -57,12 +66,15 @@
 
     <section class="view" id="view-detail" hidden></section>
 
-    <section class="view" id="view-downloads" hidden>
+    <section class="view" id="view-installed" hidden>
       <div class="page-head">
-        <h1>Downloads</h1>
-        <p>Installers Nullprice has fetched and verified on this machine.</p>
+        <h1>Installed</h1>
+        <p>
+          Tools installed on this machine. Each one lives under your own profile, has a
+          Desktop and Start Menu shortcut, and appears in Windows Apps &amp; Features.
+        </p>
       </div>
-      <div id="downloads"></div>
+      <div id="installed"></div>
     </section>
 
     <section class="view" id="view-about" hidden>

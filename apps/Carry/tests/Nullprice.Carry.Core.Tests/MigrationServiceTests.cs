@@ -102,6 +102,74 @@ public sealed class MigrationServiceTests : IDisposable
             await File.ReadAllTextAsync(Path.Combine(result.PackagePath, "possibly-inactive-files.csv")));
     }
 
+    [Fact]
+    public async Task AdditionalFolderReturnsToItsOriginalLocation()
+    {
+        var documents = Path.Combine(_root, "documents");
+        var additional = Path.Combine(_root, "outside-documents", "Profile");
+        var destination = Path.Combine(_root, "drive");
+        Directory.CreateDirectory(documents);
+        Directory.CreateDirectory(additional);
+        Directory.CreateDirectory(destination);
+        await File.WriteAllTextAsync(Path.Combine(additional, "custom.dat"), "custom-data");
+        var service = new MigrationService(documents, "unused", detectSystemComponents: false);
+
+        var backup = await service.BackupAsync(destination,
+            new MigrationOptions(false, false, false, [], 12, [additional]));
+        Directory.Delete(additional, true);
+        await service.RestoreAsync(backup.PackagePath, new MigrationOptions(false, false));
+
+        Assert.Equal("custom-data",
+            await File.ReadAllTextAsync(Path.Combine(additional, "custom.dat")));
+        var manifest = await MigrationService.ReadManifestAsync(backup.PackagePath);
+        Assert.Equal(1, manifest.AdditionalFolderCount);
+    }
+
+    [Fact]
+    public async Task LockedFileBecomesWarningAndOtherFilesStillCopy()
+    {
+        var source = Path.Combine(_root, "documents");
+        var destination = Path.Combine(_root, "drive");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(destination);
+        await File.WriteAllTextAsync(Path.Combine(source, "available.txt"), "available");
+        var lockedPath = Path.Combine(source, "locked.db");
+        await File.WriteAllTextAsync(lockedPath, "locked");
+        await using var locked = new FileStream(lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var result = await new MigrationService(source, "unused",
+            detectSystemComponents: false).BackupAsync(destination, new MigrationOptions(true, false));
+
+        Assert.True(File.Exists(Path.Combine(result.PackagePath, "Documents", "available.txt")));
+        Assert.Contains(result.Warnings, warning => warning.Contains("locked.db"));
+    }
+
+    [Fact]
+    public async Task CableTransferSendsCompletedPackageOverLoopback()
+    {
+        var source = Path.Combine(_root, "documents");
+        var staging = Path.Combine(_root, "staging");
+        var receivedRoot = Path.Combine(_root, "received");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(staging);
+        Directory.CreateDirectory(receivedRoot);
+        await File.WriteAllTextAsync(Path.Combine(source, "cable.txt"), "over-the-cable");
+        var package = await new MigrationService(source, "unused",
+            detectSystemComponents: false).BackupAsync(staging, new MigrationOptions(true, false));
+        var cable = new CableTransferService();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+        var receiveTask = cable.ReceivePackageAsync(receivedRoot, "123456",
+            cancellationToken: timeout.Token);
+        await cable.SendPackageAsync(package.PackagePath, "127.0.0.1", "123456",
+            cancellationToken: timeout.Token);
+        var received = await receiveTask;
+
+        Assert.Equal("over-the-cable",
+            await File.ReadAllTextAsync(Path.Combine(received, "Documents", "cable.txt")));
+        Assert.True(File.Exists(Path.Combine(received, MigrationManifest.FileName)));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

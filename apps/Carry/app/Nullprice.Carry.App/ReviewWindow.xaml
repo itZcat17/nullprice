@@ -1,8 +1,8 @@
 <Window x:Class="Nullprice.Carry.App.ReviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Choose apps and review inactive items" Width="920" Height="660"
-        MinWidth="760" MinHeight="520" WindowStartupLocation="CenterOwner"
+        Title="Choose apps and review inactive items" Width="980" Height="760"
+        MinWidth="820" MinHeight="620" WindowStartupLocation="CenterOwner"
         Background="#F3F5F9" FontFamily="Segoe UI" Foreground="#18202B">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -23,11 +23,38 @@
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="Tick apps to reinstall. “Possibly inactive” is an estimate from available Windows launch history."
                                TextWrapping="Wrap" Foreground="#687385" Margin="0,0,0,10"/>
-                    <DataGrid x:Name="AppsGrid" Grid.Row="1" AutoGenerateColumns="False"
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <WrapPanel>
+                            <TextBlock Text="Category:" VerticalAlignment="Center" FontWeight="SemiBold"
+                                       Margin="0,0,6,0"/>
+                            <Button Content="Apps" Tag="Apps" Click="CategoryClicked" Padding="10,5"/>
+                            <Button Content="Development" Tag="Development" Click="CategoryClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                            <Button Content="Games" Tag="Games" Click="CategoryClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                            <Button Content="System / tools" Tag="System" Click="CategoryClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                            <Button Content="All" Tag="All" Click="CategoryClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,7,0,0">
+                            <TextBlock Text="Bundles:" VerticalAlignment="Center" FontWeight="SemiBold"
+                                       Margin="0,0,6,0"/>
+                            <Button Content="Browsers + profiles" Tag="Browsers" Click="BundleClicked" Padding="10,5"/>
+                            <Button Content="Coding workspace" Tag="Coding" Click="BundleClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                            <Button Content="Games + launchers" Tag="Gaming" Click="BundleClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                            <Button Content="Chat + meetings" Tag="Communication" Click="BundleClicked"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                        </WrapPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="AppsGrid" Grid.Row="2" AutoGenerateColumns="False"
                               CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column"
                               SelectionMode="Extended">
                         <DataGrid.Columns>
@@ -63,6 +90,14 @@
                     <DataGrid x:Name="FilesGrid" Grid.Row="1" AutoGenerateColumns="False"
                               CanUserAddRows="False" IsReadOnly="True">
                         <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Carry" Width="60">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  HorizontalAlignment="Center" Margin="0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="File" Binding="{Binding RelativePath}" Width="*"/>
                             <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="100"/>
                             <DataGridTextColumn Header="Last activity" Binding="{Binding LastActivityText}" Width="160"/>

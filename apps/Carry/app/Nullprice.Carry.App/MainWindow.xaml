@@ -1,8 +1,8 @@
 <Window x:Class="Nullprice.Carry.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Carry — laptop migration" Width="780" Height="710"
-        MinWidth="680" MinHeight="580" WindowStartupLocation="CenterScreen"
+        Title="Carry — laptop migration" Width="800" Height="760"
+        MinWidth="700" MinHeight="680" WindowStartupLocation="CenterScreen"
         Background="#F3F5F9" FontFamily="Segoe UI" Foreground="{StaticResource Ink}">
     <Grid>
         <Grid.RowDefinitions>
@@ -35,6 +35,8 @@
                              Checked="ModeChanged"/>
                 <RadioButton x:Name="RestoreMode" Content="Restore on new laptop"
                              FontSize="16" FontWeight="SemiBold" Checked="ModeChanged"/>
+                <Button Content="Direct cable / LAN…" Margin="28,-7,0,-7"
+                        Padding="14,7" Click="CableModeClicked"/>
             </StackPanel>
 
             <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="20" Margin="0,20,0,0">
@@ -85,6 +87,22 @@
                     <TextBlock x:Name="ComponentsNote"
                                Text="✓ System components are automatic (.NET, ASP.NET, VC++, Node, Python)"
                                Foreground="#4C66E8" Margin="0,9,0,0" FontSize="13"/>
+                    <Grid x:Name="AdditionalFoldersRow" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Extra folders outside Documents" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="AdditionalFoldersText" Text="None selected"
+                                       Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Add folder…" Padding="12,6"
+                                Margin="10,0,0,0" Click="AddFolderClicked"/>
+                        <Button Grid.Column="2" Content="Clear" Padding="12,6"
+                                Margin="6,0,0,0" Click="ClearFoldersClicked"/>
+                    </Grid>
                     <CheckBox x:Name="OverwriteCheck" Visibility="Collapsed"
                               Content="Replace files that already exist on this laptop"/>
                 </StackPanel>

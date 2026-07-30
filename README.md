@@ -106,6 +106,68 @@ Two decisions worth knowing:
 Relative release URLs beginning with `./` resolve against `catalogue.json`, which is how the
 local feed works. Production entries use absolute `https://` URLs.
 
+## Installing, updating, and releases
+
+### What installing actually does
+
+Installing is four things, and a failed install must leave none of them behind:
+
+1. the binary, in a version-stamped folder under `%APPDATA%\Nullprice\apps\<id>\<version>\`
+2. a **Desktop shortcut**
+3. a **Start Menu shortcut**, under a Nullprice folder
+4. an **Add/Remove Programs entry**, so Windows can uninstall it the normal way
+
+Per-user rather than machine-wide on purpose: `HKCU` and `%APPDATA%` need no administrator
+prompt, which matters for tools people are only trying out. The cost is that an app is
+installed for one account rather than for everyone.
+
+`installer.js` tracks which of the four steps succeeded and undoes them in reverse on
+failure, so a crash midway cannot leave an orphan shortcut pointing at nothing or a
+phantom entry in Apps & Features. That rollback is tested.
+
+Windows invokes the uninstall through `Nullprice.exe --uninstall <id>`, so the store can
+launch headless as an uninstaller rather than only as a window.
+
+### How updates work
+
+Every tool has **its own GitHub repository and its own releases**, so shipping a fix to one
+never means re-releasing the other nine. The store polls each app's repo, compares the tag
+against what is installed, and offers whatever is newer. The store updates itself the same
+way, through `electron-updater`.
+
+GitHub publishes no checksum for release assets, so a release should include a sibling
+`<asset>.sha256` file. The store fetches it *before* the payload — discovering afterwards
+that the expected hash is unreachable would mean having already written an unverifiable
+binary. If no checksum is published the download still works, and the UI says plainly that
+it was not verified rather than implying it was.
+
+A malformed tag can never look like an upgrade: unparseable versions sort *below* parseable
+ones, so a bad tag on the server cannot nag every user forever. Drafts and prereleases are
+ignored.
+
+### Cutting a release
+
+```powershell
+.\release-app.ps1 -App Ferry -Version 0.2.0          # build + update local catalogue
+.\release-app.ps1 -App Ferry -Version 0.2.0 -Push    # also publish a GitHub release
+```
+
+Without `-Push` this only builds and points the local feed at the new version, so the store
+can install it without anything being published.
+
+### To go live — what is still needed
+
+Nothing here has been verified against a real GitHub repository, because this repo has no
+remote yet. The GitHub path is built and unit-tested against a fake, not proven end to end.
+
+1. Create a repo for the store and one per tool (`nullprice`, `nullprice-ferry`,
+   `nullprice-batch`).
+2. Replace every `REPLACE-ME` owner in `store/catalogue.json` and
+   `store/electron-builder.yml`.
+3. Flip each app's `updates.provider` from `local` to `github`.
+4. `winget install GitHub.cli`, then `gh auth login`.
+5. `git remote add origin …` and push.
+
 ## The catalogue
 
 | Tool | Does | Replaces | Their price | Status |
@@ -200,15 +262,45 @@ Two smaller decisions worth knowing:
 33 tests cover naming, resize arithmetic, pipeline ordering, both plan guards, cancellation,
 and the promise that sources are byte-identical afterwards.
 
+## Build order
+
+Batch was built second because it is the only one of the ten whose hard part is ordinary.
+The remaining eight are ordered by how contained their hard part is — Compare and Clip
+next, Corral and Span last among the catalogue tools.
+
+**Carry / Migration is last of all.** It already exists in `apps/Carry` as a working
+laptop-migration tool, it is in active use, and it is deliberately excluded from
+`Nullprice.slnx` and from the catalogue until everything else is done.
+
 ## Known gaps
 
-- Nothing is downloadable. The hub shows every tool's real status and no download button
-  goes live until there is a build behind it.
-- Ferry's WPF shell is a scaffold — plain code-behind, no MVVM, no drag and drop, no
-  persisted settings, no tray behaviour. Built to drive the engine, expected to be replaced.
-- Ferry has no resume across application restarts yet. Cancellation is clean but state is
-  not written to disk.
-- No installer or signing for any app.
-- The nine remaining tools are catalogue entries only.
-- **This project is not under version control.** Two earlier projects in this workspace
-  were permanently lost for exactly that reason. `git init` before doing more work.
+Verification status is deliberately explicit here, because several things are built and
+tested but have never been run against the real world.
+
+**Never verified end to end:**
+
+- **The GitHub update path.** There is no remote on this repo, so release lookup is proven
+  only against an injected fake. Nothing has talked to `api.github.com`.
+- **A real install.** The install sequence and its rollback are tested with injected
+  platform primitives; no Desktop shortcut has actually been written by this code and no
+  app has been installed and launched from the store window.
+- **Store self-update.** `electron-updater` is wired and only runs in a packaged build.
+  No packaged build has been made — `npm run dist` has never been run.
+- **Batch processing a real image.** Its Core is well tested, but the WIC path (decode →
+  scale → watermark via `RenderTargetBitmap` → encode, on a background thread) has never
+  processed a photograph.
+
+**Verified in isolation:** `reg.exe` produces an entry Windows will list in Apps &
+Features, and quotes inside an `UninstallString` survive Node's `execFile`, so a path
+containing spaces will not break the uninstall button.
+
+**Other gaps:**
+
+- No code signing, so SmartScreen will warn on anything distributed.
+- Ferry and Batch shells are scaffolds — plain code-behind, no MVVM, no drag and drop, no
+  persisted settings.
+- Ferry has no resume across application restarts. Cancellation is clean, but no state is
+  written to disk.
+- Eight of the ten tools are catalogue entries only.
+- The hub duplicates catalogue data that also lives in `store/catalogue.json`. Two places
+  to update is a real maintenance smell and should collapse into one source.

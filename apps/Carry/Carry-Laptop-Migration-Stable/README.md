@@ -21,27 +21,6 @@ The review screen estimates the total selected size. Scanning and size calculati
 the background, so the window remains usable. App-data sizes are calculated only for apps
 you select.
 
-The app picker separates ordinary apps, development tools, games, and system/tools.
-Bundle buttons select related applications and their profile data together. Possibly
-inactive files have individual **Carry** checkboxes; unchecked files are excluded from
-Documents backup.
-
-## Direct cable or LAN transfer
-
-This avoids Windows shares and network credentials:
-
-1. Connect both laptops by Ethernet, or connect them to the same router.
-2. Create a completed Carry package on the old laptop.
-3. Open **Direct cable / LAN** on the new laptop, select **Receive**, choose a destination,
-   and start receiving.
-4. Open the same mode on the old laptop, select **Send**, then enter the IP address and
-   six-digit code shown by the receiver.
-5. After receipt, use **Restore on new laptop** on the received package.
-
-Windows can show a firewall prompt on the receiving laptop; allow Carry on the current
-private network. A normal USB-A-to-USB-A cable is not supported or safe—use Ethernet or a
-purpose-built PC transfer cable with its own software.
-
 Close selected apps before backup. Device-encrypted passwords, cookies, credentials, and
 license activations are copied when present but may still require sign-in or reactivation
 on the new Windows account.

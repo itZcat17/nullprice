@@ -9,7 +9,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/downloader.test.js",
+    "test": "node --test test/downloader.test.js test/updates.test.js",
     "dist": "electron-builder --win --publish never",
     "pack": "electron-builder --dir"
   },

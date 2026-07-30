@@ -39,11 +39,12 @@ const THEMES = {
 
 const THEME_KEY = 'nullprice.theme';
 
-/** id -> { state, received, total, path } */
-const progress = new Map();
-
 let apps = [];
 let feed = null;
+let installed = {};
+let updates = {};
+const busy = new Map();
+
 let currentId = null;
 let currentView = 'catalogue';
 
@@ -52,26 +53,21 @@ const el = {
   nav: document.getElementById('nav'),
   build: document.getElementById('build'),
   countCatalogue: document.getElementById('count-catalogue'),
-  countDownloads: document.getElementById('count-downloads'),
-  downloads: document.getElementById('downloads'),
+  countInstalled: document.getElementById('count-installed'),
+  installedList: document.getElementById('installed'),
   main: document.getElementById('main'),
   swatches: document.getElementById('swatches'),
   themeName: document.getElementById('theme-name'),
+  checkButton: document.getElementById('check-updates'),
+  checkState: document.getElementById('check-state'),
+  storeUpdate: document.getElementById('store-update'),
 };
 
 // ---- theme ----------------------------------------------------------------
 
-/**
- * Applies a theme by stamping data-theme on the root. With no stored choice the
- * attribute is left off entirely, which lets the prefers-color-scheme block in the
- * stylesheet follow the operating system instead.
- */
 function applyTheme(name) {
-  if (name) {
-    document.documentElement.setAttribute('data-theme', name);
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
+  if (name) document.documentElement.setAttribute('data-theme', name);
+  else document.documentElement.removeAttribute('data-theme');
 
   const effective = name || (matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'light');
 
@@ -89,7 +85,7 @@ function initTheme() {
   try {
     stored = localStorage.getItem(THEME_KEY);
   } catch {
-    // Private mode or a locked-down profile; fall back to following the OS.
+    // Locked-down profile; fall back to following the OS.
   }
 
   applyTheme(THEMES[stored] ? stored : null);
@@ -97,17 +93,14 @@ function initTheme() {
   el.swatches.addEventListener('click', (event) => {
     const button = event.target.closest('.swatch');
     if (!button) return;
-
-    const next = button.dataset.swatch;
-    applyTheme(next);
+    applyTheme(button.dataset.swatch);
     try {
-      localStorage.setItem(THEME_KEY, next);
+      localStorage.setItem(THEME_KEY, button.dataset.swatch);
     } catch {
-      // Not being able to remember the choice is not worth interrupting anyone over.
+      // Not remembering the choice is not worth interrupting anyone over.
     }
   });
 
-  // Only meaningful while no explicit choice is stored.
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (!document.documentElement.hasAttribute('data-theme')) applyTheme(null);
   });
@@ -116,8 +109,7 @@ function initTheme() {
 // ---- helpers --------------------------------------------------------------
 
 function svg(name, size) {
-  const body = GLYPHS[name] || '';
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${GLYPHS[name] || ''}</svg>`;
 }
 
 function esc(value) {
@@ -142,6 +134,25 @@ function find(id) {
   return apps.find((a) => a.id === id) || null;
 }
 
+function cleanError(message) {
+  return String(message || 'Something went wrong.')
+    .replace(/^Error invoking remote method '[^']+':\s*/, '')
+    .replace(/^Error:\s*/, '');
+}
+
+/** One place that decides what state an app is in, so cards and detail never disagree. */
+function stateOf(id) {
+  const app = find(id);
+  const job = busy.get(id);
+  if (job) return job.phase;
+
+  if (installed[id]) {
+    return updates[id] && updates[id].status === 'update-available' ? 'update-available' : 'installed';
+  }
+
+  return app && app.status === 'available' ? 'installable' : 'unavailable';
+}
+
 // ---- views ----------------------------------------------------------------
 
 function show(view) {
@@ -150,17 +161,26 @@ function show(view) {
     section.hidden = section.id !== `view-${view}`;
   }
   for (const button of el.nav.querySelectorAll('button')) {
-    const isCurrent = button.dataset.view === view || (view === 'detail' && button.dataset.view === 'catalogue');
+    const isCurrent =
+      button.dataset.view === view || (view === 'detail' && button.dataset.view === 'catalogue');
     button.setAttribute('aria-current', isCurrent ? 'true' : 'false');
   }
   el.main.scrollTop = 0;
-  if (view === 'downloads') renderDownloads();
+  if (view === 'installed') renderInstalled();
 }
 
 function renderGrid() {
   el.grid.innerHTML = apps
-    .map(
-      (a) => `
+    .map((a) => {
+      const state = stateOf(a.id);
+      const badge =
+        state === 'update-available'
+          ? '<span class="chip update">Update</span>'
+          : state === 'installed'
+            ? '<span class="chip installed">Installed</span>'
+            : `<span class="chip ${a.status === 'planned' ? '' : a.status}">${STATUS[a.status] || a.status}</span>`;
+
+      return `
       <button class="card" type="button" data-id="${esc(a.id)}">
         <span class="card-top">
           <span class="glyph">${svg(a.glyph, 21)}</span>
@@ -176,33 +196,54 @@ function renderGrid() {
             <span class="now">$0</span>
           </span>
         </span>
-        <span class="chip ${a.status === 'available' ? 'available' : ''}">${STATUS[a.status] || a.status}</span>
-      </button>`
-    )
+        ${badge}
+      </button>`;
+    })
     .join('');
+}
+
+function actionMarkup(a) {
+  const state = stateOf(a.id);
+  const job = busy.get(a.id);
+
+  if (state === 'downloading' || state === 'installing') {
+    const label = state === 'downloading' ? 'Cancel' : 'Installing…';
+    const disabled = state === 'installing' ? ' disabled' : '';
+    return (
+      `<button class="btn secondary" id="cancel"${disabled}>${label}</button>` +
+      '<div class="meter"><span id="bar"></span></div>'
+    );
+  }
+
+  if (state === 'update-available') {
+    const to = updates[a.id] ? updates[a.id].latestVersion : '';
+    return (
+      `<button class="btn" id="install">Update to ${esc(to)}</button>` +
+      '<button class="btn secondary" id="launch">Open</button>' +
+      '<button class="btn secondary" id="uninstall">Uninstall</button>'
+    );
+  }
+
+  if (state === 'installed') {
+    return (
+      '<button class="btn" id="launch">Open</button>' +
+      '<button class="btn secondary" id="uninstall">Uninstall</button>'
+    );
+  }
+
+  if (state === 'installable') return '<button class="btn" id="install">Install</button>';
+
+  return '<button class="btn" disabled>Not yet available</button>';
 }
 
 function renderDetail(a) {
   const view = document.getElementById('view-detail');
-  const p = progress.get(a.id);
-  const available = a.status === 'available' && a.download;
-
-  let action;
-  if (!available) {
-    action = '<button class="btn" disabled>Not yet available</button>';
-  } else if (p && p.state === 'downloading') {
-    // No inline style attribute here: the CSP blocks those, so the width is set
-    // through the CSSOM once the markup is in the document.
-    action =
-      '<button class="btn secondary" id="cancel">Cancel</button>' +
-      '<div class="meter"><span id="bar"></span></div>';
-  } else if (p && p.state === 'ready') {
-    action = '<button class="btn" id="run">Run installer</button>';
-  } else {
-    action = '<button class="btn" id="install">Download</button>';
-  }
-
+  const record = installed[a.id];
+  const info = updates[a.id];
   const d = a.download || {};
+  const state = stateOf(a.id);
+
+  const latestVersion = info && info.latestVersion ? info.latestVersion : d.version || '—';
 
   view.innerHTML = `
     <button class="back" type="button" id="back">&larr; Catalogue</button>
@@ -211,18 +252,29 @@ function renderDetail(a) {
       <div class="detail-title">
         <h2 tabindex="-1" id="detail-name">${esc(a.name)}</h2>
         <p>${esc(a.tagline)}</p>
-        <span class="chip ${a.status === 'available' ? 'available' : ''}">${STATUS[a.status] || a.status}</span>
+        ${
+          state === 'update-available'
+            ? `<span class="chip update">Update available — ${esc(latestVersion)}</span>`
+            : state === 'installed'
+              ? `<span class="chip installed">Installed — ${esc(record.version)}</span>`
+              : `<span class="chip ${a.status === 'planned' ? '' : a.status}">${STATUS[a.status] || a.status}</span>`
+        }
       </div>
       <div class="get">
-        ${action}
+        ${actionMarkup(a)}
         <small id="status-line">Free · no account · no telemetry</small>
       </div>
     </div>
     <div class="detail-body">
       <div class="prose">
+        ${
+          info && info.status === 'update-available' && info.notes
+            ? `<h3>What changed in ${esc(info.latestVersion)}</h3><p class="notes">${esc(info.notes)}</p>`
+            : ''
+        }
         <h3>What it does</h3>
         ${a.description.map((x) => `<p>${esc(x)}</p>`).join('')}
-        <h3>${available ? 'Features' : 'Planned features'}</h3>
+        <h3>${a.status === 'available' ? 'Features' : 'Planned features'}</h3>
         <ul class="features">${a.features.map((f) => `<li><span>${esc(f)}</span></li>`).join('')}</ul>
       </div>
       <div>
@@ -230,12 +282,13 @@ function renderDetail(a) {
         <div class="spec-wrap">
           <table class="spec">
             <tbody>
-              <tr><th scope="row">Status</th><td>${STATUS[a.status] || a.status}</td></tr>
-              <tr><th scope="row">Version</th><td>${esc(d.version || '—')}</td></tr>
+              <tr><th scope="row">Installed</th><td>${record ? esc(record.version) : 'No'}</td></tr>
+              <tr><th scope="row">Latest</th><td>${esc(latestVersion)}</td></tr>
               <tr><th scope="row">Size</th><td>${formatBytes(Number(d.size) || 0)}</td></tr>
               <tr><th scope="row">Price</th><td>$0.00</td></tr>
               <tr><th scope="row">Replaces</th><td>${esc(a.replaces)}</td></tr>
               <tr><th scope="row">Their price</th><td>${esc(a.theirPrice)}</td></tr>
+              <tr><th scope="row">Updates</th><td>${a.updates ? esc(a.updates.provider) : 'catalogue'}</td></tr>
               <tr><th scope="row">Requires</th><td>${esc(a.requirements)}</td></tr>
               <tr><th scope="row">Telemetry</th><td>None</td></tr>
             </tbody>
@@ -249,110 +302,155 @@ function renderDetail(a) {
     show('catalogue');
   });
 
-  const install = view.querySelector('#install');
-  if (install) install.addEventListener('click', () => startInstall(a.id));
+  wire(view, '#install', () => startInstall(a.id));
+  wire(view, '#cancel', () => window.nullprice.cancelInstall(a.id));
+  wire(view, '#launch', () => launch(a.id));
+  wire(view, '#uninstall', () => uninstall(a.id));
 
-  const cancel = view.querySelector('#cancel');
-  if (cancel) cancel.addEventListener('click', () => window.nullprice.cancelInstall(a.id));
-
-  const run = view.querySelector('#run');
-  if (run) run.addEventListener('click', () => runInstaller(a.id));
-
-  // Restore the meter position for a download already in flight.
+  const job = busy.get(a.id);
   const bar = view.querySelector('#bar');
-  if (bar && p && p.total) {
-    bar.style.width = `${Math.round((p.received / p.total) * 100)}%`;
+  if (bar && job && job.total) {
+    bar.style.width = `${Math.round((job.received / job.total) * 100)}%`;
   }
 
   document.getElementById('detail-name').focus();
 }
 
-function renderDownloads() {
-  const entries = [...progress.entries()].filter(([, p]) => p.state !== 'idle');
+function wire(root, selector, handler) {
+  const node = root.querySelector(selector);
+  if (node) node.addEventListener('click', handler);
+}
 
-  if (entries.length === 0) {
-    el.downloads.innerHTML =
-      '<div class="empty">Nothing downloaded yet. Pick a tool from the catalogue.</div>';
+function renderInstalled() {
+  const records = Object.values(installed);
+
+  if (records.length === 0) {
+    el.installedList.innerHTML =
+      '<div class="empty">Nothing installed yet. Pick a tool from the catalogue.</div>';
     return;
   }
 
-  el.downloads.innerHTML =
+  el.installedList.innerHTML =
     '<div class="rows">' +
-    entries
-      .map(([id, p]) => {
-        const a = find(id);
-        const detail =
-          p.state === 'downloading'
-            ? `${formatBytes(p.received)}${p.total ? ` of ${formatBytes(p.total)}` : ''}`
-            : p.state === 'ready'
-              ? `verified · ${formatBytes(p.received)}`
-              : esc(p.error || 'failed');
+    records
+      .map((r) => {
+        const info = updates[r.id];
+        const hasUpdate = info && info.status === 'update-available';
         return `
           <div class="row">
             <div>
-              <div class="row-name">${esc(a ? a.name : id)}</div>
-              <div class="row-detail">${detail}</div>
+              <div class="row-name">${esc(r.name)}</div>
+              <div class="row-detail">
+                version ${esc(r.version)}${hasUpdate ? ` · ${esc(info.latestVersion)} available` : ''}
+              </div>
             </div>
-            <div>${
-              p.state === 'ready'
-                ? `<button class="btn secondary" data-run="${esc(id)}">Run installer</button>`
-                : ''
-            }</div>
+            <div class="row-actions">
+              ${hasUpdate ? `<button class="btn" data-update="${esc(r.id)}">Update</button>` : ''}
+              <button class="btn secondary" data-launch="${esc(r.id)}">Open</button>
+              <button class="btn secondary" data-reveal="${esc(r.id)}">Show files</button>
+              <button class="btn secondary" data-uninstall="${esc(r.id)}">Uninstall</button>
+            </div>
           </div>`;
       })
       .join('') +
     '</div>';
 
-  for (const button of el.downloads.querySelectorAll('[data-run]')) {
-    button.addEventListener('click', () => runInstaller(button.dataset.run));
+  bindAll('[data-update]', 'update', startInstall);
+  bindAll('[data-launch]', 'launch', launch);
+  bindAll('[data-reveal]', 'reveal', (id) => window.nullprice.reveal(id).catch(reportError));
+  bindAll('[data-uninstall]', 'uninstall', uninstall);
+}
+
+function bindAll(selector, key, handler) {
+  for (const button of el.installedList.querySelectorAll(selector)) {
+    button.addEventListener('click', () => handler(button.dataset[key]));
   }
 }
 
-function updateDownloadCount() {
-  const n = [...progress.values()].filter((p) => p.state === 'ready' || p.state === 'downloading').length;
-  el.countDownloads.textContent = String(n);
+function refreshCounts() {
+  el.countCatalogue.textContent = String(apps.length);
+  el.countInstalled.textContent = String(Object.keys(installed).length);
+}
+
+function repaint() {
+  refreshCounts();
+  renderGrid();
+  if (currentView === 'installed') renderInstalled();
+  if (currentView === 'detail' && currentId) renderDetail(find(currentId));
 }
 
 // ---- actions --------------------------------------------------------------
 
 async function startInstall(id) {
-  progress.set(id, { state: 'downloading', received: 0, total: 0 });
-  if (currentId === id) renderDetail(find(id));
-  updateDownloadCount();
+  busy.set(id, { phase: 'downloading', received: 0, total: 0 });
+  repaint();
 
   try {
-    await window.nullprice.startInstall(id);
-  } catch (err) {
-    const aborted = /abort/i.test(err.message || '');
-    progress.set(id, {
-      state: aborted ? 'idle' : 'failed',
-      received: 0,
-      total: 0,
-      error: aborted ? null : cleanError(err.message),
-    });
-    if (currentId === id) {
-      renderDetail(find(id));
-      const line = document.getElementById('status-line');
-      if (line && !aborted) line.textContent = cleanError(err.message);
-    }
-  }
+    await window.nullprice.install(id);
+    installed = await window.nullprice.listInstalled();
 
-  updateDownloadCount();
-  if (currentView === 'downloads') renderDownloads();
-}
-
-async function runInstaller(id) {
-  try {
-    await window.nullprice.runInstaller(id);
+    // The freshly installed version is by definition current.
+    if (updates[id]) updates[id] = { ...updates[id], status: 'up-to-date' };
   } catch (err) {
-    const line = document.getElementById('status-line');
-    if (line) line.textContent = cleanError(err.message);
+    if (!/abort/i.test(err.message || '')) reportError(err);
+  } finally {
+    busy.delete(id);
+    repaint();
   }
 }
 
-/** Electron prefixes IPC errors with its own noise; strip it so users see the real sentence. */
-function cleanError(message) {
-  return String(message || 'Something went wrong.').replace(/^Error invoking remote method '[^']+':\s*/, '');
+async function uninstall(id) {
+  const app = find(id);
+  if (!confirm(`Uninstall ${app ? app.name : id}?\n\nIts shortcuts and files will be removed.`)) {
+    return;
+  }
+
+  try {
+    await window.nullprice.uninstall(id);
+    installed = await window.nullprice.listInstalled();
+  } catch (err) {
+    reportError(err);
+  }
+  repaint();
+}
+
+async function launch(id) {
+  try {
+    await window.nullprice.launch(id);
+  } catch (err) {
+    reportError(err);
+  }
+}
+
+async function checkUpdates() {
+  el.checkButton.disabled = true;
+  el.checkState.textContent = 'Checking…';
+
+  try {
+    const results = await window.nullprice.checkUpdates();
+    updates = Object.fromEntries(results.map((r) => [r.id, r]));
+
+    const pending = results.filter((r) => r.status === 'update-available').length;
+    const failed = results.filter((r) => r.status === 'check-failed').length;
+
+    el.checkState.textContent = pending
+      ? `${pending} update${pending === 1 ? '' : 's'} available`
+      : failed
+        ? `${failed} could not be checked`
+        : 'Everything is up to date';
+  } catch (err) {
+    el.checkState.textContent = cleanError(err.message);
+  } finally {
+    el.checkButton.disabled = false;
+    repaint();
+  }
+}
+
+function reportError(err) {
+  const line = document.getElementById('status-line');
+  const message = cleanError(err.message);
+  if (line) line.textContent = message;
+  else el.checkState.textContent = message;
 }
 
 // ---- wiring ---------------------------------------------------------------
@@ -372,6 +470,8 @@ el.nav.addEventListener('click', (event) => {
   show(button.dataset.view);
 });
 
+el.checkButton.addEventListener('click', checkUpdates);
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && currentView === 'detail') {
     currentId = null;
@@ -380,8 +480,8 @@ document.addEventListener('keydown', (event) => {
 });
 
 window.nullprice.onProgress(({ id, received, total }) => {
-  const existing = progress.get(id) || {};
-  progress.set(id, { ...existing, state: 'downloading', received, total });
+  const job = busy.get(id) || { phase: 'downloading' };
+  busy.set(id, { ...job, received, total });
 
   if (currentId === id) {
     const bar = document.getElementById('bar');
@@ -393,15 +493,35 @@ window.nullprice.onProgress(({ id, received, total }) => {
         : formatBytes(received);
     }
   }
-
-  if (currentView === 'downloads') renderDownloads();
 });
 
-window.nullprice.onReady(({ id, bytes }) => {
-  progress.set(id, { state: 'ready', received: bytes, total: bytes });
-  updateDownloadCount();
-  if (currentId === id) renderDetail(find(id));
-  if (currentView === 'downloads') renderDownloads();
+window.nullprice.onPhase(({ id, phase, version }) => {
+  const job = busy.get(id) || {};
+  busy.set(id, { ...job, phase });
+
+  if (currentId === id) {
+    const line = document.getElementById('status-line');
+    if (line && phase === 'installing') {
+      line.textContent = `Installing ${version} and creating shortcuts…`;
+    }
+  }
+
+  repaint();
+});
+
+window.nullprice.onDone(({ id, verified }) => {
+  if (currentId === id) {
+    const line = document.getElementById('status-line');
+    if (line) {
+      line.textContent = verified
+        ? 'Installed and verified against its published checksum.'
+        : 'Installed. No checksum was published for this release, so it was not verified.';
+    }
+  }
+});
+
+window.nullprice.onStoreUpdateReady(() => {
+  el.storeUpdate.hidden = false;
 });
 
 (async function boot() {
@@ -411,13 +531,15 @@ window.nullprice.onReady(({ id, bytes }) => {
     const data = await window.nullprice.loadCatalogue();
     feed = data.feed;
     apps = data.apps;
+    installed = data.installed || {};
 
     el.build.textContent = `catalogue rev. ${feed.updated}`;
-    el.countCatalogue.textContent = String(apps.length);
-
-    renderGrid();
-    updateDownloadCount();
+    repaint();
     show('catalogue');
+
+    // Checked on open rather than on demand only, so an out-of-date tool is visible
+    // without anyone having to think to look.
+    checkUpdates();
   } catch (err) {
     el.grid.innerHTML = `<div class="empty">Could not load the catalogue.<br>${esc(
       cleanError(err.message)

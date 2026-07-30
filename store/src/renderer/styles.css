@@ -216,6 +216,37 @@ body {
   color: var(--sidebar-soft);
 }
 
+.sidebar-action {
+  padding: 14px 22px 0;
+  margin-top: 14px;
+  border-top: 1px solid var(--sidebar-line);
+}
+
+.sidebar-action button {
+  width: 100%;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 10px;
+  color: var(--sidebar-ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--sidebar-line);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sidebar-action button:hover:not([disabled]) { background: rgba(255, 255, 255, 0.11); }
+.sidebar-action button[disabled] { opacity: 0.55; cursor: default; }
+.sidebar-action button:focus-visible { outline: 2px solid var(--sidebar-accent); outline-offset: 2px; }
+
+.check-state {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--sidebar-soft);
+}
+
 .sidebar-foot {
   margin-top: auto;
   padding: 16px 22px 0;
@@ -403,10 +434,41 @@ body {
   white-space: nowrap;
 }
 
-.chip.available {
+.chip.available,
+.chip.installed {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* An available update is the one thing in the catalogue that should pull the eye. */
+.chip.update {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: transparent;
+  font-weight: 700;
+}
+
+.store-update {
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  padding: 11px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.store-update[hidden] { display: none; }
+
+.row-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+
+.row-actions .btn { padding: 7px 13px; font-size: 12.5px; }
+
+.notes {
+  border-left: 2px solid var(--line-strong);
+  padding: 2px 0 2px 14px;
+  white-space: pre-wrap;
+  color: var(--ink-soft);
 }
 
 /* ---- detail ---- */

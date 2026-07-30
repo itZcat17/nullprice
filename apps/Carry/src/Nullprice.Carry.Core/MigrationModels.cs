@@ -37,6 +37,7 @@ public sealed class MigrationManifest
     public int SelectedAppCount { get; init; }
     public int SystemComponentCount { get; init; }
     public int InactiveFileCount { get; init; }
+    public int AdditionalFolderCount { get; init; }
 
     [JsonIgnore]
     public const string FileName = "carry-manifest.json";
@@ -47,7 +48,9 @@ public sealed record MigrationOptions(
     bool IncludeVsCode = true,
     bool OverwriteExisting = false,
     IReadOnlyList<AppPackage>? SelectedApps = null,
-    int InactivityMonths = 12);
+    int InactivityMonths = 12,
+    IReadOnlyList<string>? AdditionalFolders = null,
+    IReadOnlyList<string>? ExcludedDocumentFiles = null);
 
 public sealed record AppPackage(
     string Identifier,
@@ -80,5 +83,11 @@ public sealed record InactiveFile(
 
 public sealed record FileReviewResult(
     IReadOnlyList<InactiveFile> InactiveFiles,
+    long InactiveFileCount,
     long TotalFiles,
     long TotalBytes);
+
+public sealed record AdditionalFolderMapping(
+    string OriginalPath,
+    string PackageFolder,
+    string? UserProfileRelativePath);
