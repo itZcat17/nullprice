@@ -29,6 +29,11 @@ public partial class MainWindow : Window
         public int RotationDegrees;
         public Image ThumbnailImage = null!;
         public Border Container = null!;
+
+        // Keyed by OperatorIndex so re-editing the same line across separate PageEditorWindow
+        // sessions replaces rather than duplicates it, while edits to other lines made in an
+        // earlier session are preserved.
+        public List<(int OperatorIndex, string NewText, string FontResourceName)> PendingTextEdits = [];
     }
 
     public MainWindow()
@@ -129,6 +134,7 @@ public partial class MainWindow : Window
         buttonRow.Children.Add(MakeSmallButton("►", () => Rotate(tile, 90)));
         buttonRow.Children.Add(MakeSmallButton("↑", () => Move(tile, -1)));
         buttonRow.Children.Add(MakeSmallButton("↓", () => Move(tile, 1)));
+        buttonRow.Children.Add(MakeSmallButton("Aa", () => EditText(tile)));
         buttonRow.Children.Add(MakeSmallButton("✕", () => Delete(tile)));
 
         var stack = new StackPanel { Margin = new Thickness(6) };
@@ -180,6 +186,21 @@ public partial class MainWindow : Window
         UpdateStatus();
     }
 
+    private void EditText(PageTile tile)
+    {
+        var sourcePath = _sourcePaths[tile.SourceGroupIndex];
+        var editor = new PageEditorWindow(sourcePath, tile.PageIndexInSource) { Owner = this };
+        if (editor.ShowDialog() != true) return;
+
+        foreach (var edit in editor.PendingEdits)
+        {
+            tile.PendingTextEdits.RemoveAll(e => e.OperatorIndex == edit.OperatorIndex);
+            tile.PendingTextEdits.Add((edit.OperatorIndex, edit.NewText, edit.FontResourceName));
+        }
+
+        UpdateStatus();
+    }
+
     // ---- output / run -----------------------------------------------------------
 
     private void OnChooseOutput(object sender, RoutedEventArgs e)
@@ -214,14 +235,17 @@ public partial class MainWindow : Window
 
         var newOrder = _tiles.Select(t => offsets[t.SourceGroupIndex] + t.PageIndexInSource).ToList();
         var operations = new List<PageOperation> { new ReorderOperation(newOrder) };
+        var textEdits = new List<TextEdit>();
         for (var i = 0; i < _tiles.Count; i++)
         {
             if (_tiles[i].RotationDegrees != 0)
                 operations.Add(new RotateOperation(i, _tiles[i].RotationDegrees));
+
+            textEdits.AddRange(_tiles[i].PendingTextEdits.Select(e => new TextEdit(i, e.OperatorIndex, e.NewText, e.FontResourceName)));
         }
 
         var sources = _sourcePaths.Select(p => new MergeSource(p)).ToList();
-        var outputs = new List<SheafOutput> { new(_outputPath, operations) };
+        var outputs = new List<SheafOutput> { new(_outputPath, operations, TextEdits: textEdits) };
         var plan = SheafPlanner.Build(sources, outputs);
 
         if (!plan.IsRunnable)
@@ -268,8 +292,15 @@ public partial class MainWindow : Window
 
     private void UpdateStatus()
     {
-        StatusText.Text = _tiles.Count == 0
-            ? "Add one or more PDFs, arrange pages, and choose an output file."
-            : $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready.";
+        if (_tiles.Count == 0)
+        {
+            StatusText.Text = "Add one or more PDFs, arrange pages, and choose an output file.";
+            return;
+        }
+
+        var editCount = _tiles.Sum(t => t.PendingTextEdits.Count);
+        StatusText.Text = editCount == 0
+            ? $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready."
+            : $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready, {editCount} text edit(s) queued.";
     }
 }

@@ -17,8 +17,6 @@ namespace Nullprice.Sheaf.Core;
 /// </summary>
 public static class ContentStreamRedactor
 {
-    private const double TextWidthHeuristic = 0.6; // average glyph advance as a fraction of font size
-
     public static byte[] Redact(byte[] contentBytes, int pageIndex, IReadOnlyList<RedactionRegion> regions)
     {
         var relevant = regions.Where(r => r.PageIndex == pageIndex).ToList();
@@ -29,9 +27,9 @@ public static class ContentStreamRedactor
 
         ContentStreamWalker.Walk(ops, PdfMatrix.Identity, (op, state) =>
         {
-            if (IsTextShow(op.Operator))
+            if (TextRunGeometry.IsTextShow(op.Operator))
             {
-                var (x0, y0, x1, y1) = TextBounds(op, state);
+                var (x0, y0, x1, y1) = TextRunGeometry.Bounds(op, state);
                 if (!relevant.Any(r => r.Intersects(x0, y0, x1, y1))) kept.Add(op);
                 return;
             }
@@ -47,31 +45,6 @@ public static class ContentStreamRedactor
         });
 
         return ContentStreamWriter.Write(kept);
-    }
-
-    private static bool IsTextShow(string op) => op is "Tj" or "TJ" or "'" or "\"";
-
-    private static (double, double, double, double) TextBounds(ContentOp op, GraphicsState state)
-    {
-        var combined = PdfMatrix.Multiply(state.TextMatrix, state.Ctm);
-        var text = TextOf(op);
-        var width = Math.Max(1, text.Length) * state.FontSize * TextWidthHeuristic;
-        var height = state.FontSize <= 0 ? 1 : state.FontSize;
-
-        var (x0, y0) = combined.Apply(0, 0);
-        var (x1, y1) = combined.Apply(width, height);
-        return (x0, y0, x1, y1);
-    }
-
-    private static string TextOf(ContentOp op)
-    {
-        if (op.Operands.Count == 0) return "";
-        return op.Operands[0] switch
-        {
-            PdfString s => System.Text.Encoding.Latin1.GetString(s.Bytes),
-            PdfArray a => string.Concat(a.Items.OfType<PdfString>().Select(s => System.Text.Encoding.Latin1.GetString(s.Bytes))),
-            _ => "",
-        };
     }
 
     private static (double, double, double, double) ImageBounds(PdfMatrix ctm)

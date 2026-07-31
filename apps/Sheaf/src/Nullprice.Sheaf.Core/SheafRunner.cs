@@ -172,8 +172,14 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
 
         var trailer = new PdfDictionary(new Dictionary<string, PdfObject> { ["Root"] = rootRef });
 
-        // Redaction before compression: a page's content is settled (including which images
-        // are even still referenced) before anything about the surviving images is recompressed.
+        // Text edits before redaction, and redaction before compression: text edits rely on
+        // operator indices captured against the pristine imported content (see TextEdit's own
+        // doc comment for why), and a page's content should be fully settled — including which
+        // images are even still referenced — before anything about the surviving images is
+        // recompressed.
+        if (output.TextEdits is { Count: > 0 } textEdits)
+            ApplyTextEdits(destination, importedRefs, textEdits);
+
         if (output.Redactions is { Count: > 0 } redactions)
             ApplyRedactions(destination, importedRefs, redactions);
 
@@ -192,6 +198,39 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
         return PdfWriter.Write(PdfDocument.Create(pruned, trailer));
     }
 
+    private static void ApplyTextEdits(PdfObjectTable destination, IReadOnlyList<PdfReference> importedPageRefs, IReadOnlyList<TextEdit> edits)
+    {
+        foreach (var group in edits.GroupBy(e => e.PageIndex))
+        {
+            var i = group.Key;
+            if (i < 0 || i >= importedPageRefs.Count) continue;
+
+            var pageRef = importedPageRefs[i];
+            if (!destination.TryGet(pageRef.Number, pageRef.Generation, out var pageObj) || pageObj is not PdfDictionary pageDict) continue;
+
+            var current = ContentStreamCombiner.Combine(destination, pageDict.Get("Contents"));
+            if (current is null) continue;
+
+            foreach (var edit in group)
+            {
+                var fontDict = EmbeddedFontExtractor.ResolveFontResource(destination, pageDict, edit.FontResourceName)
+                    ?? throw new InvalidOperationException($"Could not find font resource '{edit.FontResourceName}' for a text edit on page {i + 1}.");
+
+                var font = EmbeddedFontExtractor.Extract(destination, fontDict)
+                    ?? throw new InvalidOperationException($"This page's font can't be used for in-place text editing (page {i + 1}).");
+
+                current = ContentStreamTextEditor.Rewrite(current, edit.OperatorIndex, edit.NewText, font)
+                    ?? throw new InvalidOperationException($"Couldn't apply a text edit on page {i + 1} — the font may not include every character typed.");
+            }
+
+            var encoded = FilterCodec.Encode(current);
+            var streamDict = new PdfDictionary(new Dictionary<string, PdfObject> { ["Filter"] = new PdfName("FlateDecode") });
+            var newStreamNum = destination.Allocate();
+            destination.Set(newStreamNum, 0, new PdfStream(streamDict, encoded));
+            destination.Set(pageRef.Number, pageRef.Generation, pageDict.With("Contents", new PdfReference(newStreamNum, 0)));
+        }
+    }
+
     private static void ApplyRedactions(PdfObjectTable destination, IReadOnlyList<PdfReference> importedPageRefs, IReadOnlyList<RedactionRegion> regions)
     {
         for (var i = 0; i < importedPageRefs.Count; i++)
@@ -201,7 +240,7 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
             var pageRef = importedPageRefs[i];
             if (!destination.TryGet(pageRef.Number, pageRef.Generation, out var pageObj) || pageObj is not PdfDictionary pageDict) continue;
 
-            var combined = CombineContentStreams(destination, pageDict.Get("Contents"));
+            var combined = ContentStreamCombiner.Combine(destination, pageDict.Get("Contents"));
             if (combined is null) continue;
 
             var redacted = ContentStreamRedactor.Redact(combined, i, regions);
@@ -213,29 +252,6 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
 
             destination.Set(pageRef.Number, pageRef.Generation, pageDict.With("Contents", new PdfReference(newStreamNum, 0)));
         }
-    }
-
-    /// <summary>A page's /Contents can be one stream or an array of several (ISO 32000-1
-    /// §7.8.2) — concatenated here into one, since Sheaf always writes a single fresh stream
-    /// back regardless of how the source split things up.</summary>
-    private static byte[]? CombineContentStreams(PdfObjectTable table, PdfObject? contentsValue)
-    {
-        var streams = table.Resolve(contentsValue) switch
-        {
-            PdfStream s => new List<PdfStream> { s },
-            PdfArray a => a.Items.Select(i => table.Resolve(i)).OfType<PdfStream>().ToList(),
-            _ => null,
-        };
-        if (streams is null || streams.Count == 0) return null;
-
-        using var combined = new MemoryStream();
-        foreach (var stream in streams)
-        {
-            var decoded = FilterCodec.Decode(stream.Dictionary, stream.RawBytes, table);
-            combined.Write(decoded, 0, decoded.Length);
-            combined.WriteByte((byte)'\n');
-        }
-        return combined.ToArray();
     }
 
     private static void ApplyCompression(PdfObjectTable destination, CompressionSettings settings, IRasterRecompressor recompressor)

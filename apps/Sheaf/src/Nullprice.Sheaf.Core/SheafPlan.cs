@@ -12,15 +12,30 @@ public sealed record MergeSource(string Path, IReadOnlyList<int>? PageIndices = 
 /// to <see cref="IRasterRecompressor"/>). Omitted means images are left exactly as imported.</summary>
 public sealed record CompressionSettings(int Quality);
 
+/// <summary>Replaces one text-showing operator's shown text in place. <see cref="OperatorIndex"/>
+/// is captured against the page's content stream immediately after import/rotation, before any
+/// other content-mutating step runs — text edits apply first, ahead of <see cref="SheafOutput.Redactions"/>,
+/// specifically so that index stays valid: rewriting an operator never changes how many
+/// operators exist, so applying every text edit for a page (in any order) never invalidates
+/// another edit's index, but redaction *removing* operators would silently shift indices if it
+/// ran first. <see cref="FontResourceName"/> is the page's own <c>/Font</c> resource key (e.g.
+/// "F1") the target operator was drawn with, captured at the same time as the click that found
+/// it — needed at write time to re-derive the same <see cref="EmbeddedFontExtractor"/> mapping
+/// without re-walking the whole content stream's graphics state again.</summary>
+public sealed record TextEdit(int PageIndex, int OperatorIndex, string NewText, string FontResourceName);
+
 /// <summary>One PDF to write. <see cref="Operations"/> reorders, rotates, or drops pages from
 /// the pages this output selects out of the plan's sources — this is how "split" is expressed
-/// (several outputs, each selecting/ordering a different subset). <see cref="Redactions"/> and
-/// <see cref="Compression"/> are applied, in that order, after the page selection is final —
-/// redaction first, so a page's content is settled before anything about its images is
+/// (several outputs, each selecting/ordering a different subset). <see cref="TextEdits"/>,
+/// <see cref="Redactions"/>, and <see cref="Compression"/> are applied in that order after the
+/// page selection is final: text edits first (see <see cref="TextEdit"/> for why), then
+/// redaction (geometry-based, safe to run on whatever content edits left behind), then
+/// compression, so a page's content is fully settled before anything about its images is
 /// recompressed.</summary>
 public sealed record SheafOutput(
     string Path,
     IReadOnlyList<PageOperation> Operations,
+    IReadOnlyList<TextEdit>? TextEdits = null,
     IReadOnlyList<RedactionRegion>? Redactions = null,
     CompressionSettings? Compression = null);
 
