@@ -21,7 +21,7 @@ extraResources:
 # the latest.yml feed URL.
 publish:
   - provider: github
-    owner: REPLACE-ME
+    owner: itZcat17
     repo: nullprice
     releaseType: release
 
