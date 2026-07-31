@@ -37,22 +37,21 @@ public sealed class PdfDocument
         ParsedPdf parsed;
         try
         {
-            parsed = PdfParser.Parse(bytes);
+            parsed = PdfParser.Parse(bytes, password);
         }
         catch (Exception ex)
         {
             return PdfOpenResult.Fail(PdfOpenStatus.ParseError, ex.Message);
         }
 
+        if (parsed.Encryption == PdfEncryptionStatus.WrongPassword)
+            return PdfOpenResult.Fail(PdfOpenStatus.WrongPassword, "That password didn't unlock this PDF.");
+
+        if (parsed.Encryption == PdfEncryptionStatus.Unsupported)
+            return PdfOpenResult.Fail(PdfOpenStatus.UnsupportedEncryption, parsed.EncryptionMessage ?? "This PDF's encryption isn't supported yet.");
+
         if (parsed.Objects.All.Count == 0)
             return PdfOpenResult.Fail(PdfOpenStatus.ParseError, "No objects could be read from this file.");
-
-        if (parsed.Trailer.Get("Encrypt") is not null)
-        {
-            // Password removal (PdfSecurityHandler) lands in a later milestone; for now every
-            // encrypted PDF is refused explicitly rather than opened incorrectly.
-            return PdfOpenResult.Fail(PdfOpenStatus.UnsupportedEncryption, "Password-protected PDFs aren't supported yet.");
-        }
 
         return PdfOpenResult.Ok(new PdfDocument(parsed.Objects, parsed.Trailer));
     }

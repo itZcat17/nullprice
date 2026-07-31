@@ -1,6 +1,8 @@
 namespace Nullprice.Sheaf.Core;
 
-public sealed record ParsedPdf(PdfObjectTable Objects, PdfDictionary Trailer);
+public enum PdfEncryptionStatus { NotEncrypted, Success, WrongPassword, Unsupported }
+
+public sealed record ParsedPdf(PdfObjectTable Objects, PdfDictionary Trailer, PdfEncryptionStatus Encryption, string? EncryptionMessage = null);
 
 /// <summary>
 /// Parses PDF bytes into an object graph (ISO 32000-1 §7.5). Objects are read by byte offset
@@ -18,7 +20,7 @@ public sealed record ParsedPdf(PdfObjectTable Objects, PdfDictionary Trailer);
 /// </summary>
 public static class PdfParser
 {
-    public static ParsedPdf Parse(byte[] bytes)
+    public static ParsedPdf Parse(byte[] bytes, string? password = null)
     {
         var offsets = new Dictionary<(int, int), long>();
         var compressed = new Dictionary<(int, int), (int, int)>();
@@ -40,8 +42,58 @@ public static class PdfParser
         }
 
         var objects = new PdfObjectTable();
-        var loader = new PdfObjectLoader(bytes, offsets, compressed, objects);
+
+        byte[]? fileKey = null;
+        var useAes = false;
+        (int Number, int Generation)? encryptObjectKey = null;
+
+        if (trailer.Get("Encrypt") is PdfReference encryptRef)
+        {
+            encryptObjectKey = (encryptRef.Number, encryptRef.Generation);
+
+            // Bootstrapped with no decrypt hook: the /Encrypt dictionary's own O/U strings are
+            // always stored in plaintext (ISO 32000-1 §7.6.1) — they're key-derivation
+            // material, not document content — so reading it needs no key yet.
+            var bootstrapLoader = new PdfObjectLoader(bytes, offsets, compressed, objects);
+            var encryptObj = bootstrapLoader.Load(encryptRef.Number, encryptRef.Generation);
+
+            if (encryptObj is not PdfDictionary encryptDict)
+            {
+                return new ParsedPdf(objects, trailer, PdfEncryptionStatus.Unsupported, "Could not read this PDF's encryption dictionary.");
+            }
+
+            var id0 = (((trailer.Get("ID") as PdfArray)?.Items.FirstOrDefault()) as PdfString)?.Bytes ?? [];
+            var (settings, unsupportedReason) = PdfSecuritySettings.FromEncryptDictionary(encryptDict, id0);
+
+            if (settings is null)
+            {
+                return new ParsedPdf(objects, trailer, PdfEncryptionStatus.Unsupported, unsupportedReason);
+            }
+
+            if (!PdfSecurityHandler.TryComputeFileKey(settings, password, out var computedKey))
+            {
+                return new ParsedPdf(objects, trailer, PdfEncryptionStatus.WrongPassword, null);
+            }
+
+            fileKey = computedKey;
+            useAes = settings.UseAes;
+        }
+
+        byte[] DecryptForObjStm(int num, int gen, byte[] raw) =>
+            fileKey is null ? raw : PdfSecurityHandler.Decrypt(fileKey, num, gen, useAes, raw);
+
+        var loader = fileKey is null
+            ? new PdfObjectLoader(bytes, offsets, compressed, objects)
+            : new PdfObjectLoader(bytes, offsets, compressed, objects, DecryptForObjStm);
         loader.LoadAll();
+
+        if (fileKey is not null)
+        {
+            // Only directly-loaded objects need this — objects extracted from an object
+            // stream were already decrypted (as a whole, before decompression) by
+            // DecryptForObjStm above, and decrypting them again here would corrupt them.
+            DecryptDirectObjects(objects, offsets.Keys, encryptObjectKey, fileKey, useAes);
+        }
 
         if (trailer.Entries.Count == 0 || trailer.Get("Root") is null)
         {
@@ -51,8 +103,36 @@ public static class PdfParser
             if (root is not null) trailer = trailer.With("Root", root);
         }
 
-        return new ParsedPdf(objects, trailer);
+        var status = fileKey is not null ? PdfEncryptionStatus.Success : PdfEncryptionStatus.NotEncrypted;
+        return new ParsedPdf(objects, trailer, status);
     }
+
+    /// <summary>Decrypts every string and stream belonging to an object that was loaded
+    /// directly by file offset — everything except the <c>/Encrypt</c> dictionary itself
+    /// (never encrypted) and cross-reference streams (ISO 32000-1 §7.5.8.2 — never encrypted;
+    /// harmless to skip specially since Sheaf always discards them anyway, being unreachable
+    /// from Root and superseded by a fresh xref table on every write).</summary>
+    private static void DecryptDirectObjects(
+        PdfObjectTable objects, IEnumerable<(int Number, int Generation)> directKeys,
+        (int Number, int Generation)? skipKey, byte[] fileKey, bool useAes)
+    {
+        foreach (var key in directKeys)
+        {
+            if (skipKey.HasValue && key == skipKey.Value) continue;
+            if (!objects.TryGet(key.Number, key.Generation, out var value)) continue;
+
+            objects.Set(key.Number, key.Generation, DecryptValue(value, key.Number, key.Generation, fileKey, useAes));
+        }
+    }
+
+    private static PdfObject DecryptValue(PdfObject value, int num, int gen, byte[] fileKey, bool useAes) => value switch
+    {
+        PdfString s => new PdfString(PdfSecurityHandler.Decrypt(fileKey, num, gen, useAes, s.Bytes), s.WasHex),
+        PdfArray a => new PdfArray(a.Items.Select(i => DecryptValue(i, num, gen, fileKey, useAes)).ToList()),
+        PdfDictionary d => new PdfDictionary(d.Entries.ToDictionary(kv => kv.Key, kv => DecryptValue(kv.Value, num, gen, fileKey, useAes))),
+        PdfStream s => new PdfStream((PdfDictionary)DecryptValue(s.Dictionary, num, gen, fileKey, useAes), PdfSecurityHandler.Decrypt(fileKey, num, gen, useAes, s.RawBytes)),
+        _ => value,
+    };
 
     // ---- cross-reference chain ---------------------------------------------
 

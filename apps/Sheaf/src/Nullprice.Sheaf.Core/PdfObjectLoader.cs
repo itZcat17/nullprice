@@ -9,7 +9,8 @@ internal sealed class PdfObjectLoader(
     byte[] bytes,
     Dictionary<(int Number, int Generation), long> offsets,
     Dictionary<(int Number, int Generation), (int StreamNumber, int Index)> compressed,
-    PdfObjectTable table)
+    PdfObjectTable table,
+    Func<int, int, byte[], byte[]>? decryptStream = null)
 {
     private readonly HashSet<(int, int)> _loading = [];
 
@@ -122,7 +123,13 @@ internal sealed class PdfObjectLoader(
     {
         if (Load(streamNumber, 0) is not PdfStream stm) return PdfNull.Instance;
 
-        var decoded = FilterCodec.Decode(stm.Dictionary, stm.RawBytes, table);
+        // Object streams are themselves encrypted like any other stream (unlike xref streams,
+        // which never are), but the objects extracted *from* one aren't separately encrypted —
+        // decrypting the container here, before decompressing it, is the only place that
+        // needs to happen. What's stored in `table` for the container stays ciphertext; a
+        // later full-graph pass (PdfParser) fixes that up too, redundant but harmless here.
+        var rawBytes = decryptStream is null ? stm.RawBytes : decryptStream(streamNumber, 0, stm.RawBytes);
+        var decoded = FilterCodec.Decode(stm.Dictionary, rawBytes, table);
         var n = (stm.Dictionary.Get("N") as PdfNumber)?.AsInt ?? 0;
         var first = (stm.Dictionary.Get("First") as PdfNumber)?.AsInt ?? 0;
 
