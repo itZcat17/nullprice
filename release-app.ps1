@@ -63,12 +63,26 @@ Write-Host "  $([math]::Round($file.Length / 1MB, 1)) MB   sha256 $hash" -Foregr
 
 # ---- update the catalogue -------------------------------------------------
 
-$catalogue = Get-Content $cataloguePath -Raw | ConvertFrom-Json
+$catalogue = Get-Content $cataloguePath -Raw -Encoding UTF8 | ConvertFrom-Json
 $entry = $catalogue.apps | Where-Object { $_.id -eq $App.ToLower() }
 
 if (-not $entry) {
     Write-Host "No catalogue entry with id '$($App.ToLower())'." -ForegroundColor Red
     exit 1
+}
+
+# A tool's first-ever release starts from `"download": null` in the catalogue (nothing to
+# overwrite yet) rather than the pre-seeded object Ferry/Batch shipped with — build one fresh
+# so a first release doesn't crash trying to set a property on null.
+if (-not $entry.download) {
+    $entry | Add-Member -NotePropertyName download -NotePropertyValue ([PSCustomObject]@{
+        version  = ''
+        kind     = 'portable'
+        filename = ''
+        url      = ''
+        sha256   = ''
+        size     = 0
+    }) -Force
 }
 
 $entry.status = 'available'
@@ -78,7 +92,12 @@ $entry.download.url = "./feed/$assetName"
 $entry.download.sha256 = $hash
 $entry.download.size = $file.Length
 
-$catalogue | ConvertTo-Json -Depth 12 | Set-Content $cataloguePath -Encoding utf8
+# Windows PowerShell 5.1's `-Encoding utf8` always writes a BOM, and Node's JSON.parse (what
+# the store actually reads this file with) does not tolerate a leading BOM — it would fail
+# to load the catalogue entirely. Writing through .NET directly with a BOM-less UTF8Encoding
+# sidesteps that regardless of PowerShell version quirks.
+$json = $catalogue | ConvertTo-Json -Depth 12
+[System.IO.File]::WriteAllText($cataloguePath, $json, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Catalogue updated." -ForegroundColor Green
 
 # ---- publish --------------------------------------------------------------
