@@ -25,7 +25,7 @@ public sealed record SheafReport(IReadOnlyList<SheafResult> Results, TimeSpan Du
 /// exception thrown out of <see cref="RunAsync"/>, matching Batch's "one bad file is reported
 /// and skipped, not fatal to the run" behaviour at the level Sheaf's model actually supports.
 /// </summary>
-public sealed class SheafRunner
+public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
 {
     public async Task<SheafReport> RunAsync(
         SheafPlan plan,
@@ -85,7 +85,7 @@ public sealed class SheafRunner
         return new SheafReport(results, DateTime.UtcNow - started, cancelled);
     }
 
-    private static byte[] BuildOutput(
+    private byte[] BuildOutput(
         IReadOnlyList<MergeSource> sources,
         Dictionary<string, (PdfDocument? Doc, string? Error)> openDocs,
         SheafOutput output)
@@ -171,7 +171,84 @@ public sealed class SheafRunner
         }));
 
         var trailer = new PdfDictionary(new Dictionary<string, PdfObject> { ["Root"] = rootRef });
-        return PdfWriter.Write(PdfDocument.Create(destination, trailer));
+
+        // Redaction before compression: a page's content is settled (including which images
+        // are even still referenced) before anything about the surviving images is recompressed.
+        if (output.Redactions is { Count: > 0 } redactions)
+            ApplyRedactions(destination, importedRefs, redactions);
+
+        if (output.Compression is { } compression)
+        {
+            if (recompressor is null)
+                throw new InvalidOperationException("Compression was requested but no image recompressor is configured.");
+            ApplyCompression(destination, compression, recompressor);
+        }
+
+        // Pruned unconditionally, not just when redacting: an unreachable object's bytes are
+        // still physically present in the file otherwise, which would make "redaction" hollow,
+        // and it also keeps a plain merge/split from carrying over anything a page didn't
+        // actually end up referencing.
+        var pruned = PdfGarbageCollector.Prune(destination, trailer);
+        return PdfWriter.Write(PdfDocument.Create(pruned, trailer));
+    }
+
+    private static void ApplyRedactions(PdfObjectTable destination, IReadOnlyList<PdfReference> importedPageRefs, IReadOnlyList<RedactionRegion> regions)
+    {
+        for (var i = 0; i < importedPageRefs.Count; i++)
+        {
+            if (!regions.Any(r => r.PageIndex == i)) continue;
+
+            var pageRef = importedPageRefs[i];
+            if (!destination.TryGet(pageRef.Number, pageRef.Generation, out var pageObj) || pageObj is not PdfDictionary pageDict) continue;
+
+            var combined = CombineContentStreams(destination, pageDict.Get("Contents"));
+            if (combined is null) continue;
+
+            var redacted = ContentStreamRedactor.Redact(combined, i, regions);
+            var encoded = FilterCodec.Encode(redacted);
+
+            var streamDict = new PdfDictionary(new Dictionary<string, PdfObject> { ["Filter"] = new PdfName("FlateDecode") });
+            var newStreamNum = destination.Allocate();
+            destination.Set(newStreamNum, 0, new PdfStream(streamDict, encoded));
+
+            destination.Set(pageRef.Number, pageRef.Generation, pageDict.With("Contents", new PdfReference(newStreamNum, 0)));
+        }
+    }
+
+    /// <summary>A page's /Contents can be one stream or an array of several (ISO 32000-1
+    /// §7.8.2) — concatenated here into one, since Sheaf always writes a single fresh stream
+    /// back regardless of how the source split things up.</summary>
+    private static byte[]? CombineContentStreams(PdfObjectTable table, PdfObject? contentsValue)
+    {
+        var streams = table.Resolve(contentsValue) switch
+        {
+            PdfStream s => new List<PdfStream> { s },
+            PdfArray a => a.Items.Select(i => table.Resolve(i)).OfType<PdfStream>().ToList(),
+            _ => null,
+        };
+        if (streams is null || streams.Count == 0) return null;
+
+        using var combined = new MemoryStream();
+        foreach (var stream in streams)
+        {
+            var decoded = FilterCodec.Decode(stream.Dictionary, stream.RawBytes, table);
+            combined.Write(decoded, 0, decoded.Length);
+            combined.WriteByte((byte)'\n');
+        }
+        return combined.ToArray();
+    }
+
+    private static void ApplyCompression(PdfObjectTable destination, CompressionSettings settings, IRasterRecompressor recompressor)
+    {
+        foreach (var (key, value) in destination.All.ToList())
+        {
+            if (value is not PdfStream stream || !ImageXObjects.IsJpeg(stream)) continue;
+
+            var recompressed = recompressor.Recompress(stream.RawBytes, "DCTDecode", settings.Quality, out var resultFilter);
+            if (recompressed.Length >= stream.RawBytes.Length) continue; // not worth the quality loss
+
+            destination.Set(key.Number, key.Generation, new PdfStream(stream.Dictionary.With("Filter", new PdfName(resultFilter)), recompressed));
+        }
     }
 
     private static async Task WriteAtomicAsync(string path, byte[] bytes, CancellationToken cancellationToken)

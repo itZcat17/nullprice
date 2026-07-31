@@ -43,12 +43,11 @@ public static class PdfWriter
         for (var i = 1; i < next; i++)
             WriteText($"{offsets[i]:D10} 00000 n \n");
 
-        var newRoot = document.Trailer.Get("Root") is PdfReference r && renumber.TryGetValue((r.Number, r.Generation), out var rootNum)
-            ? new PdfReference(rootNum, 0)
-            : document.Trailer.Get("Root");
-
+        // WriteObject already remaps every PdfReference it writes (see the PdfReference case
+        // below), so the trailer's Root is passed through in its original, pre-renumber form
+        // — remapping it here too would double-apply renumber and point at the wrong object.
         var trailerEntries = new Dictionary<string, PdfObject> { ["Size"] = new PdfNumber(next) };
-        if (newRoot is not null) trailerEntries["Root"] = newRoot;
+        if (document.Trailer.Get("Root") is { } root) trailerEntries["Root"] = root;
 
         WriteText("trailer\n");
         WriteObject(new PdfDictionary(trailerEntries), renumber, WriteText, WriteRaw);

@@ -8,10 +8,21 @@ public sealed record PlanProblem(string Message);
 /// "merge" is expressed (several sources, each usually with null/all indices).</summary>
 public sealed record MergeSource(string Path, IReadOnlyList<int>? PageIndices = null, string? Password = null);
 
+/// <summary>How hard to recompress this output's embedded JPEG images (1-100, passed through
+/// to <see cref="IRasterRecompressor"/>). Omitted means images are left exactly as imported.</summary>
+public sealed record CompressionSettings(int Quality);
+
 /// <summary>One PDF to write. <see cref="Operations"/> reorders, rotates, or drops pages from
 /// the pages this output selects out of the plan's sources — this is how "split" is expressed
-/// (several outputs, each selecting/ordering a different subset).</summary>
-public sealed record SheafOutput(string Path, IReadOnlyList<PageOperation> Operations);
+/// (several outputs, each selecting/ordering a different subset). <see cref="Redactions"/> and
+/// <see cref="Compression"/> are applied, in that order, after the page selection is final —
+/// redaction first, so a page's content is settled before anything about its images is
+/// recompressed.</summary>
+public sealed record SheafOutput(
+    string Path,
+    IReadOnlyList<PageOperation> Operations,
+    IReadOnlyList<RedactionRegion>? Redactions = null,
+    CompressionSettings? Compression = null);
 
 public sealed record SheafPlan(
     IReadOnlyList<MergeSource> Sources,

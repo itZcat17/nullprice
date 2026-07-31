@@ -75,3 +75,63 @@ public static class ContentStreamReader
         tok.Position = bytes.Length;
     }
 }
+
+/// <summary>Serializes a list of operator/operand tuples back into content-stream bytes —
+/// the write side of <see cref="ContentStreamReader"/>, used after an editing pass (redaction,
+/// text editing) drops or rewrites some operators.</summary>
+public static class ContentStreamWriter
+{
+    public static byte[] Write(IReadOnlyList<ContentOp> ops)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var op in ops)
+        {
+            foreach (var operand in op.Operands)
+            {
+                WriteOperand(sb, operand);
+                sb.Append(' ');
+            }
+            sb.Append(op.Operator).Append('\n');
+        }
+        return System.Text.Encoding.Latin1.GetBytes(sb.ToString());
+    }
+
+    private static void WriteOperand(System.Text.StringBuilder sb, PdfObject operand)
+    {
+        switch (operand)
+        {
+            case PdfNumber n:
+                sb.Append(n.IsInteger || n.Value == Math.Floor(n.Value)
+                    ? ((long)n.Value).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : n.Value.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case PdfName name:
+                sb.Append('/').Append(name.Value);
+                break;
+            case PdfString s:
+                sb.Append('(');
+                foreach (var b in s.Bytes)
+                {
+                    if (b is (byte)'(' or (byte)')' or (byte)'\\') sb.Append('\\');
+                    sb.Append((char)b);
+                }
+                sb.Append(')');
+                break;
+            case PdfArray a:
+                sb.Append('[');
+                for (var i = 0; i < a.Items.Count; i++)
+                {
+                    if (i > 0) sb.Append(' ');
+                    WriteOperand(sb, a.Items[i]);
+                }
+                sb.Append(']');
+                break;
+            case PdfBoolean b:
+                sb.Append(b.Value ? "true" : "false");
+                break;
+            case PdfNull:
+                sb.Append("null");
+                break;
+        }
+    }
+}
