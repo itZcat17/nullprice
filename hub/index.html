@@ -404,6 +404,8 @@
     color: var(--accent-ink);
     border-radius: var(--radius);
     cursor: pointer;
+    text-align: center;
+    text-decoration: none;
   }
 
   .btn[disabled] {
@@ -574,11 +576,11 @@
         <span class="k">licence cost replaced</span>
       </div>
       <div class="ledger-item">
-        <span class="n money">2</span>
+        <span class="n money">3</span>
         <span class="k">built and downloadable</span>
       </div>
       <div class="ledger-item">
-        <span class="n">8</span>
+        <span class="n">7</span>
         <span class="k">still to build</span>
       </div>
     </div>
@@ -600,9 +602,12 @@
     <div>
       <h4>Status</h4>
       <p>
-        Two of the ten are built. The other eight are catalogue entries and say so. This page
-        is the catalogue; downloading and installing happens in the Nullprice desktop app,
-        which verifies every release against a published checksum before running it.
+        Three of the ten are built. The other seven are catalogue entries and say so. Each
+        download button goes straight to that tool's own GitHub release — no upload, no
+        account, no middleman. The Nullprice desktop app is still there if you'd rather
+        install and update everything from one place; it also verifies every release against
+        a published checksum automatically before running it, which a direct download here
+        does not do for you.
       </p>
     </div>
     <div>
@@ -642,6 +647,7 @@
       id: 'ferry', name: 'Ferry', glyph: 'ferry',
       tag: 'Copy large amounts of data and know for certain it arrived intact.',
       replaces: 'TeraCopy Pro', was: '~$25', status: 'available',
+      owner: 'itZcat17', repo: 'nullprice-ferry',
       body: [
         'Windows Explorer copies files and tells you nothing about whether they survived the trip. Ferry hashes every file as it reads and again as it writes, so a completed transfer is a verified transfer rather than an assumed one.',
         'Built for the cases Explorer handles badly: tens of thousands of small files, flaky external drives, transfers that die three hours in and have to start over.'
@@ -677,7 +683,8 @@
     {
       id: 'sheaf', name: 'Sheaf', glyph: 'sheaf',
       tag: 'Rearrange, merge, split, and compress PDFs entirely on your own machine.',
-      replaces: 'Acrobat Standard', was: '~$155/yr', status: 'planned',
+      replaces: 'Acrobat Standard', was: '~$155/yr', status: 'available',
+      owner: 'itZcat17', repo: 'nullprice-sheaf',
       body: [
         'The free web PDF tools all require uploading the document to somebody else\'s server, which rules them out for anything confidential. Sheaf does the same operations locally and nothing ever leaves the computer.',
         'A visual page grid is the main interface: drag pages between documents, rotate, delete, and extract, then write the result out.'
@@ -732,6 +739,7 @@
       id: 'batch', name: 'Batch', glyph: 'batch',
       tag: 'Convert, resize, and watermark thousands of images at once.',
       replaces: 'assorted paid converters', was: '~$30', status: 'available',
+      owner: 'itZcat17', repo: 'nullprice-batch',
       body: [
         'Bulk image work is the kind of task people do once a month and pay for reluctantly. Batch builds a pipeline of operations, previews it on a sample, then runs it across an entire folder tree.',
         'Everything is non-destructive by default: originals are left alone unless you explicitly say otherwise.'
@@ -856,8 +864,13 @@
   }
 
   function renderDetail(a) {
-    // This page is a catalogue, not an installer — downloads happen in the desktop app.
+    // Available tools link straight to their GitHub release page rather than a hardcoded
+    // asset URL — "latest" always resolves to whatever version was most recently published,
+    // so this link never goes stale when a new version ships and this page isn't touched.
     const live = a.status === 'available';
+    const getHtml = live
+      ? '<a class="btn" href="https://github.com/' + a.owner + '/' + a.repo + '/releases/latest" target="_blank" rel="noopener">Download for Windows</a>'
+      : '<button class="btn" disabled>Not yet available</button>';
     detail.innerHTML = '' +
       '<button class="back" id="back">&larr; All tools</button>' +
       '<div class="detail-head">' +
@@ -868,7 +881,7 @@
           '<span class="chip' + (a.status === 'planned' ? '' : ' ' + a.status) + '">' + STATUS_LABEL[a.status] + '</span>' +
         '</div>' +
         '<div class="get">' +
-          '<button class="btn" disabled>' + (live ? 'Get it in the Nullprice app' : 'Not yet available') + '</button>' +
+          getHtml +
           '<small>Free · no account · no telemetry</small>' +
         '</div>' +
       '</div>' +
