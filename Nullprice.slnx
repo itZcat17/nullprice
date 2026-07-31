@@ -20,4 +20,14 @@
   <Folder Name="/apps/Ferry/tests/">
     <Project Path="apps/Ferry/tests/Nullprice.Ferry.Core.Tests/Nullprice.Ferry.Core.Tests.csproj" />
   </Folder>
+  <Folder Name="/apps/Sheaf/" />
+  <Folder Name="/apps/Sheaf/app/">
+    <Project Path="apps/Sheaf/app/Nullprice.Sheaf.App/Nullprice.Sheaf.App.csproj" />
+  </Folder>
+  <Folder Name="/apps/Sheaf/src/">
+    <Project Path="apps/Sheaf/src/Nullprice.Sheaf.Core/Nullprice.Sheaf.Core.csproj" />
+  </Folder>
+  <Folder Name="/apps/Sheaf/tests/">
+    <Project Path="apps/Sheaf/tests/Nullprice.Sheaf.Core.Tests/Nullprice.Sheaf.Core.Tests.csproj" />
+  </Folder>
 </Solution>

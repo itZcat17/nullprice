@@ -84,6 +84,12 @@
         "Password removal where you already hold the password",
         "No upload, no account, no network access at all"
       ],
+      "updates": {
+        "provider": "github",
+        "owner": "itZcat17",
+        "repo": "nullprice-sheaf",
+        "assetPattern": "Sheaf-*-setup.exe"
+      },
       "download": null
     },
     {

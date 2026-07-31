@@ -9,7 +9,7 @@
 
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Ferry', 'Batch')]
+    [ValidateSet('Ferry', 'Batch', 'Sheaf')]
     [string]$App,
 
     [Parameter(Mandatory = $true)]
