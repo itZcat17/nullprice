@@ -27,16 +27,19 @@ public sealed record TextEdit(int PageIndex, int OperatorIndex, string NewText, 
 /// <summary>One PDF to write. <see cref="Operations"/> reorders, rotates, or drops pages from
 /// the pages this output selects out of the plan's sources — this is how "split" is expressed
 /// (several outputs, each selecting/ordering a different subset). <see cref="TextEdits"/>,
-/// <see cref="Redactions"/>, and <see cref="Compression"/> are applied in that order after the
-/// page selection is final: text edits first (see <see cref="TextEdit"/> for why), then
-/// redaction (geometry-based, safe to run on whatever content edits left behind), then
-/// compression, so a page's content is fully settled before anything about its images is
-/// recompressed.</summary>
+/// <see cref="Redactions"/>, <see cref="Annotations"/>, and <see cref="Compression"/> are
+/// applied in that order after the page selection is final: text edits first (see
+/// <see cref="TextEdit"/> for why), then redaction (geometry-based, safe to run on whatever
+/// content edits left behind), then annotations (purely additive — see
+/// <see cref="AnnotationEdit"/> — so it doesn't matter whether the marked-up region survived
+/// redaction, only that the page's own content is already settled), then compression, so a
+/// page's content is fully settled before anything about its images is recompressed.</summary>
 public sealed record SheafOutput(
     string Path,
     IReadOnlyList<PageOperation> Operations,
     IReadOnlyList<TextEdit>? TextEdits = null,
     IReadOnlyList<RedactionRegion>? Redactions = null,
+    IReadOnlyList<AnnotationEdit>? Annotations = null,
     CompressionSettings? Compression = null);
 
 public sealed record SheafPlan(

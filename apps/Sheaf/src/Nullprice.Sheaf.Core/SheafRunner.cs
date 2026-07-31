@@ -183,6 +183,9 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
         if (output.Redactions is { Count: > 0 } redactions)
             ApplyRedactions(destination, importedRefs, redactions);
 
+        if (output.Annotations is { Count: > 0 } annotations)
+            ApplyAnnotations(destination, importedRefs, annotations);
+
         if (output.Compression is { } compression)
         {
             if (recompressor is null)
@@ -251,6 +254,15 @@ public sealed class SheafRunner(IRasterRecompressor? recompressor = null)
             destination.Set(newStreamNum, 0, new PdfStream(streamDict, encoded));
 
             destination.Set(pageRef.Number, pageRef.Generation, pageDict.With("Contents", new PdfReference(newStreamNum, 0)));
+        }
+    }
+
+    private static void ApplyAnnotations(PdfObjectTable destination, IReadOnlyList<PdfReference> importedPageRefs, IReadOnlyList<AnnotationEdit> annotations)
+    {
+        foreach (var annotation in annotations)
+        {
+            if (annotation.PageIndex < 0 || annotation.PageIndex >= importedPageRefs.Count) continue;
+            AnnotationWriter.Apply(destination, importedPageRefs[annotation.PageIndex], annotation);
         }
     }
 
