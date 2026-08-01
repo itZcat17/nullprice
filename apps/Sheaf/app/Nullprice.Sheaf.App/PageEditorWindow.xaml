@@ -1,7 +1,7 @@
 <Window x:Class="Nullprice.Sheaf.App.PageEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sheaf — Edit page" Height="860" Width="1040"
+        Title="Sheaf — Edit page" Height="880" Width="1080"
         WindowStartupLocation="CenterOwner"
         Background="#EEF0F1"
         FontFamily="Segoe UI Variable Text, Segoe UI"
@@ -13,6 +13,7 @@
         <SolidColorBrush x:Key="Line" Color="#DCE1E4" />
         <SolidColorBrush x:Key="Accent" Color="#12674A" />
         <SolidColorBrush x:Key="Warn" Color="#A8442B" />
+        <SolidColorBrush x:Key="SidebarBg" Color="#F5F6F7" />
 
         <Style TargetType="Button">
             <Setter Property="Padding" Value="12,6" />
@@ -30,93 +31,202 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
-        <Style x:Key="ToolToggle" TargetType="ToggleButton">
-            <Setter Property="Padding" Value="9,5" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#C3CBD0" />
-            <Setter Property="BorderThickness" Value="1" />
+        <!-- Icon-only tool buttons for the left sidebar: selection state is shown by the
+             button's own background/border (accent green when checked), not by recoloring the
+             icon glyph inside it — keeps every icon a single fixed ink color regardless of
+             state, which is simpler and reads just as clearly. -->
+        <Style x:Key="ToolIconToggle" TargetType="RadioButton">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontSize" Value="12" />
-            <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Accent}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                    <Setter Property="Foreground" Value="White" />
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" Background="White" BorderBrush="#C3CBD0" BorderThickness="1" CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#DCEEE5" />
+                                <Setter TargetName="Bg" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#EEF0F1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SidebarSeparator" TargetType="Separator">
+            <Setter Property="Margin" Value="4,4,4,8" />
+            <Setter Property="Background" Value="{StaticResource Line}" />
         </Style>
     </Window.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-            <RadioButton x:Name="EditTextTool" Content="Edit text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="HighlightTool" Content="Highlight" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="UnderlineTool" Content="Underline" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="StrikeoutTool" Content="Strikethrough" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="LineTool" Content="Line" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="ArrowTool" Content="Arrow" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="RectangleTool" Content="Rectangle" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="EllipseTool" Content="Ellipse" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="InkTool" Content="Pen" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="StickyNoteTool" Content="Note" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="NewTextTool" Content="New text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="ImageTool" Content="Image" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
-        </StackPanel>
+        <!-- Contextual options strip: color/width apply to whichever drawing tool is active,
+             font/size apply to New text. Always visible rather than swapped in per tool, to
+             keep the interaction model simple (one bar, not a different one per tool). -->
+        <Border Grid.Row="0" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Color" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+                <ComboBox x:Name="ColorPicker" Width="100" SelectedIndex="0" VerticalAlignment="Center" Margin="0,0,18,0">
+                    <ComboBoxItem Content="Yellow" Tag="#FFE600" />
+                    <ComboBoxItem Content="Red" Tag="#E23B3B" />
+                    <ComboBoxItem Content="Green" Tag="#1FA24A" />
+                    <ComboBoxItem Content="Blue" Tag="#2B6CE2" />
+                    <ComboBoxItem Content="Black" Tag="#12171A" />
+                </ComboBox>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock Text="Color" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
-            <ComboBox x:Name="ColorPicker" Width="100" SelectedIndex="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                <ComboBoxItem Content="Yellow" Tag="#FFE600" />
-                <ComboBoxItem Content="Red" Tag="#E23B3B" />
-                <ComboBoxItem Content="Green" Tag="#1FA24A" />
-                <ComboBoxItem Content="Blue" Tag="#2B6CE2" />
-                <ComboBoxItem Content="Black" Tag="#12171A" />
-            </ComboBox>
+                <TextBlock Text="Width" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+                <Slider x:Name="WidthSlider" Width="90" Minimum="1" Maximum="14" Value="2" VerticalAlignment="Center" Margin="0,0,18,0" />
 
-            <TextBlock Text="Width" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
-            <Slider x:Name="WidthSlider" Width="90" Minimum="1" Maximum="14" Value="2" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <Rectangle Width="1" Fill="{StaticResource Line}" Margin="0,2,18,2" />
 
-            <TextBlock Text="Font" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
-            <ComboBox x:Name="FontPicker" Width="170" VerticalAlignment="Center" Margin="0,0,10,0">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Source}" FontFamily="{Binding}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBlock Text="Size" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
-            <Slider x:Name="FontSizeSlider" Width="70" Minimum="8" Maximum="72" Value="18" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <TextBlock Text="Font" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+                <ComboBox x:Name="FontPicker" Width="170" VerticalAlignment="Center" Margin="0,0,18,0">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Source}" FontFamily="{Binding}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Size" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+                <Slider x:Name="FontSizeSlider" Width="70" Minimum="8" Maximum="72" Value="18" VerticalAlignment="Center" Margin="0,0,18,0" />
 
-            <TextBlock x:Name="ToolHint" Text="Click a line of text on the page to edit it in place."
-                       VerticalAlignment="Center"
-                       Foreground="{StaticResource InkSoft}" FontFamily="Cascadia Mono, Consolas" FontSize="11" />
-        </StackPanel>
+                <Rectangle Width="1" Fill="{StaticResource Line}" Margin="0,2,18,2" />
 
-        <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="#DDD">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <Grid x:Name="PageCanvas" Background="White">
-                    <Image x:Name="PageImage" Stretch="None"
-                           MouseLeftButtonDown="OnCanvasMouseDown"
-                           MouseMove="OnCanvasMouseMove"
-                           MouseLeftButtonUp="OnCanvasMouseUp" />
-                    <TextBox x:Name="EditBox" Visibility="Collapsed"
-                             FontSize="16" Padding="2"
-                             BorderBrush="{StaticResource Accent}" BorderThickness="2"
-                             Background="White"
-                             KeyDown="OnEditBoxKeyDown"
-                             LostKeyboardFocus="OnEditBoxLostFocus" />
-                </Grid>
-            </ScrollViewer>
+                <TextBlock x:Name="ToolHint" Text="Click a line of text on the page to edit it in place."
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource InkSoft}" FontFamily="Cascadia Mono, Consolas" FontSize="11" />
+            </StackPanel>
         </Border>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource SidebarBg}" BorderBrush="{StaticResource Line}"
+                    BorderThickness="1" CornerRadius="8" Padding="6" VerticalAlignment="Top" Margin="0,0,10,0">
+                <StackPanel>
+                    <RadioButton x:Name="EditTextTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Edit existing text">
+                        <Canvas Width="18" Height="18">
+                            <Line X1="3" Y1="15" X2="11" Y2="7" Stroke="{StaticResource Ink}" StrokeThickness="2.4"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            <Polygon Points="11,7 16,3 15,8" Fill="{StaticResource Ink}" />
+                        </Canvas>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NewTextTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="New text">
+                        <TextBlock Text="T" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Ink}" />
+                    </RadioButton>
+
+                    <Separator Style="{StaticResource SidebarSeparator}" />
+
+                    <RadioButton x:Name="HighlightTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Highlight">
+                        <Rectangle Width="16" Height="9" Fill="#FFE600" Stroke="{StaticResource Ink}" StrokeThickness="1" RadiusX="1" RadiusY="1" />
+                    </RadioButton>
+
+                    <RadioButton x:Name="UnderlineTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Underline">
+                        <TextBlock Text="U" FontSize="16" FontWeight="Bold" TextDecorations="Underline" Foreground="{StaticResource Ink}" />
+                    </RadioButton>
+
+                    <RadioButton x:Name="StrikeoutTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Strikethrough">
+                        <TextBlock Text="S" FontSize="16" FontWeight="Bold" TextDecorations="Strikethrough" Foreground="{StaticResource Ink}" />
+                    </RadioButton>
+
+                    <Separator Style="{StaticResource SidebarSeparator}" />
+
+                    <RadioButton x:Name="LineTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Line">
+                        <Line X1="2" Y1="16" X2="16" Y2="2" Stroke="{StaticResource Ink}" StrokeThickness="2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    </RadioButton>
+
+                    <RadioButton x:Name="ArrowTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Arrow">
+                        <Canvas Width="18" Height="18">
+                            <Line X1="2" Y1="16" X2="11" Y2="7" Stroke="{StaticResource Ink}" StrokeThickness="2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            <Polygon Points="16,2 14,8 10,4" Fill="{StaticResource Ink}" />
+                        </Canvas>
+                    </RadioButton>
+
+                    <RadioButton x:Name="RectangleTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Rectangle">
+                        <Rectangle Width="16" Height="11" Stroke="{StaticResource Ink}" StrokeThickness="2" Fill="Transparent" />
+                    </RadioButton>
+
+                    <RadioButton x:Name="EllipseTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Ellipse">
+                        <Ellipse Width="16" Height="11" Stroke="{StaticResource Ink}" StrokeThickness="2" Fill="Transparent" />
+                    </RadioButton>
+
+                    <RadioButton x:Name="InkTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Freehand pen">
+                        <Polyline Points="2,13 5,5 8,13 11,5 14,13 16,7" Stroke="{StaticResource Ink}" StrokeThickness="2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" />
+                    </RadioButton>
+
+                    <Separator Style="{StaticResource SidebarSeparator}" />
+
+                    <RadioButton x:Name="StickyNoteTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Sticky note">
+                        <Canvas Width="18" Height="18">
+                            <Polygon Points="2,2 14,2 16,4 16,16 2,16" Fill="#FFF3B0" Stroke="{StaticResource Ink}"
+                                     StrokeThickness="1.3" StrokeLineJoin="Round" />
+                            <Polygon Points="14,2 14,4 16,4" Fill="{StaticResource InkSoft}" />
+                        </Canvas>
+                    </RadioButton>
+
+                    <RadioButton x:Name="ImageTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
+                                 Checked="OnToolChanged" ToolTip="Insert image">
+                        <Canvas Width="18" Height="18">
+                            <Rectangle Canvas.Left="1" Canvas.Top="2" Width="16" Height="13"
+                                       Stroke="{StaticResource Ink}" StrokeThickness="1.5" Fill="Transparent" />
+                            <Ellipse Canvas.Left="4" Canvas.Top="4.5" Width="3" Height="3" Fill="{StaticResource Ink}" />
+                            <Polygon Points="3,14 8,8 11,11 13,7 16,14" Fill="{StaticResource InkSoft}" />
+                        </Canvas>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="#DDD" CornerRadius="8">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid x:Name="PageCanvas" Background="White">
+                        <Image x:Name="PageImage" Stretch="None"
+                               MouseLeftButtonDown="OnCanvasMouseDown"
+                               MouseMove="OnCanvasMouseMove"
+                               MouseLeftButtonUp="OnCanvasMouseUp" />
+                        <TextBox x:Name="EditBox" Visibility="Collapsed"
+                                 FontSize="16" Padding="2"
+                                 BorderBrush="{StaticResource Accent}" BorderThickness="2"
+                                 Background="White"
+                                 KeyDown="OnEditBoxKeyDown"
+                                 LostKeyboardFocus="OnEditBoxLostFocus" />
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
             <Button Content="Done" Style="{StaticResource Primary}" Click="OnDone" Margin="0,0,8,0" />
             <TextBlock x:Name="StatusText" Text="No edits queued yet." VerticalAlignment="Center"
                        FontFamily="Cascadia Mono, Consolas" FontSize="11"
