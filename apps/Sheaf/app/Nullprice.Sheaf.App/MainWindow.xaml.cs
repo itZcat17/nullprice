@@ -34,6 +34,10 @@ public partial class MainWindow : Window
         // sessions replaces rather than duplicates it, while edits to other lines made in an
         // earlier session are preserved.
         public List<(int OperatorIndex, string NewText, string FontResourceName)> PendingTextEdits = [];
+
+        // Annotations are always new additions (no "operator index" to dedupe against, unlike
+        // text edits), so every session's markup is simply appended.
+        public List<AnnotationEdit> PendingAnnotations = [];
     }
 
     public MainWindow()
@@ -134,7 +138,7 @@ public partial class MainWindow : Window
         buttonRow.Children.Add(MakeSmallButton("►", () => Rotate(tile, 90)));
         buttonRow.Children.Add(MakeSmallButton("↑", () => Move(tile, -1)));
         buttonRow.Children.Add(MakeSmallButton("↓", () => Move(tile, 1)));
-        buttonRow.Children.Add(MakeSmallButton("Aa", () => EditText(tile)));
+        buttonRow.Children.Add(MakeSmallButton("Edit", () => EditText(tile)));
         buttonRow.Children.Add(MakeSmallButton("✕", () => Delete(tile)));
 
         var stack = new StackPanel { Margin = new Thickness(6) };
@@ -197,6 +201,7 @@ public partial class MainWindow : Window
             tile.PendingTextEdits.RemoveAll(e => e.OperatorIndex == edit.OperatorIndex);
             tile.PendingTextEdits.Add((edit.OperatorIndex, edit.NewText, edit.FontResourceName));
         }
+        tile.PendingAnnotations.AddRange(editor.PendingAnnotations);
 
         UpdateStatus();
     }
@@ -236,16 +241,18 @@ public partial class MainWindow : Window
         var newOrder = _tiles.Select(t => offsets[t.SourceGroupIndex] + t.PageIndexInSource).ToList();
         var operations = new List<PageOperation> { new ReorderOperation(newOrder) };
         var textEdits = new List<TextEdit>();
+        var annotations = new List<AnnotationEdit>();
         for (var i = 0; i < _tiles.Count; i++)
         {
             if (_tiles[i].RotationDegrees != 0)
                 operations.Add(new RotateOperation(i, _tiles[i].RotationDegrees));
 
             textEdits.AddRange(_tiles[i].PendingTextEdits.Select(e => new TextEdit(i, e.OperatorIndex, e.NewText, e.FontResourceName)));
+            annotations.AddRange(_tiles[i].PendingAnnotations.Select(a => a with { PageIndex = i }));
         }
 
         var sources = _sourcePaths.Select(p => new MergeSource(p)).ToList();
-        var outputs = new List<SheafOutput> { new(_outputPath, operations, TextEdits: textEdits) };
+        var outputs = new List<SheafOutput> { new(_outputPath, operations, TextEdits: textEdits, Annotations: annotations) };
         var plan = SheafPlanner.Build(sources, outputs);
 
         if (!plan.IsRunnable)
@@ -299,8 +306,9 @@ public partial class MainWindow : Window
         }
 
         var editCount = _tiles.Sum(t => t.PendingTextEdits.Count);
-        StatusText.Text = editCount == 0
+        var markupCount = _tiles.Sum(t => t.PendingAnnotations.Count);
+        StatusText.Text = editCount == 0 && markupCount == 0
             ? $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready."
-            : $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready, {editCount} text edit(s) queued.";
+            : $"{_tiles.Count} page(s) from {_sourcePaths.Count} file(s) ready, {editCount} text edit(s) and {markupCount} markup(s) queued.";
     }
 }

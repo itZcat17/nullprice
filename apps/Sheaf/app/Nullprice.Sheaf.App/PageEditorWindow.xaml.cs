@@ -1,28 +1,39 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using Nullprice.Sheaf.Core;
 
 namespace Nullprice.Sheaf.App;
 
 /// <summary>
-/// Renders one page at a fixed working DPI and lets the user click a line of text to edit it
-/// in place. Deliberately built as a general "page canvas" rather than a text-edit-only
-/// dialog: the coordinate mapping (screen pixels &lt;-&gt; PDF user-space) and render/click
-/// plumbing here is exactly what shape/ink/highlight tools will need too once they exist,
-/// so this is the shared foundation for the whole "click or drag on the page" family of
-/// features, not a one-off.
+/// Renders one page at a fixed working DPI and drives every "click or drag on the page" tool:
+/// in-place text editing (M5) plus the M7 markup tools (highlight/underline/strikethrough,
+/// line/rectangle/ellipse shapes, freehand ink, sticky notes) built on M6's
+/// <see cref="AnnotationEdit"/>/<see cref="AnnotationWriter"/> foundation. One shared
+/// screen&lt;-&gt;PDF-space coordinate mapping and canvas serves every tool, per the plan's
+/// original "general page canvas, not a text-only dialog" design.
+///
+/// Interaction model, per tool: region-based markup (Highlight/Underline/StrikeOut/Rectangle/
+/// Ellipse) and Line/Arrow use a single mouse-down-drag-up gesture — consistent with
+/// redaction's existing box-drawing UX. Ink captures every point of the drag as one stroke
+/// (continuous point capture, since a box can't represent freehand). Sticky notes are a single
+/// click that opens an inline text box for the note's contents.
 /// </summary>
 public partial class PageEditorWindow : Window
 {
     private const double Dpi = 150;
 
+    private enum Tool { EditText, Highlight, Underline, Strikeout, Line, Arrow, Rectangle, Ellipse, Ink, StickyNote }
+
     private readonly string _pdfPath;
     private readonly int _pageIndex;
     private readonly string? _password;
     private readonly List<TextEdit> _pendingEdits = [];
+    private readonly List<AnnotationEdit> _pendingAnnotations = [];
     private readonly WpfGlyphFontLoader _glyphFontLoader = new();
 
     private PdfDocument? _doc;
@@ -30,7 +41,16 @@ public partial class PageEditorWindow : Window
     private double _mediaBoxX0, _mediaBoxY0, _mediaBoxHeight;
     private TextRunLocation? _editingRun;
 
+    private Tool _tool = Tool.EditText;
+    private Point? _dragStart;
+    private Shape? _previewShape;
+    private Polyline? _inkPreview;
+    private readonly List<(double X, double Y)> _inkPoints = [];
+    private TextBox? _noteBox;
+    private double _noteBoxPdfX, _noteBoxPdfY;
+
     public IReadOnlyList<TextEdit> PendingEdits => _pendingEdits;
+    public IReadOnlyList<AnnotationEdit> PendingAnnotations => _pendingAnnotations;
 
     public PageEditorWindow(string pdfPath, int pageIndex, string? password = null)
     {
@@ -38,6 +58,7 @@ public partial class PageEditorWindow : Window
         _pdfPath = pdfPath;
         _pageIndex = pageIndex;
         _password = password;
+        EditTextTool.IsChecked = true; // set after InitializeComponent so OnToolChanged can safely touch every named element
         Loaded += async (_, _) => await LoadPageAsync();
     }
 
@@ -92,6 +113,141 @@ public partial class PageEditorWindow : Window
         PageCanvas.Height = rendered.PixelHeight;
 
         StatusText.Text = "No edits queued yet.";
+    }
+
+    // ---- tool selection -------------------------------------------------------------------
+
+    private void OnToolChanged(object sender, RoutedEventArgs e)
+    {
+        _tool = sender switch
+        {
+            _ when ReferenceEquals(sender, EditTextTool) => Tool.EditText,
+            _ when ReferenceEquals(sender, HighlightTool) => Tool.Highlight,
+            _ when ReferenceEquals(sender, UnderlineTool) => Tool.Underline,
+            _ when ReferenceEquals(sender, StrikeoutTool) => Tool.Strikeout,
+            _ when ReferenceEquals(sender, LineTool) => Tool.Line,
+            _ when ReferenceEquals(sender, ArrowTool) => Tool.Arrow,
+            _ when ReferenceEquals(sender, RectangleTool) => Tool.Rectangle,
+            _ when ReferenceEquals(sender, EllipseTool) => Tool.Ellipse,
+            _ when ReferenceEquals(sender, InkTool) => Tool.Ink,
+            _ when ReferenceEquals(sender, StickyNoteTool) => Tool.StickyNote,
+            _ => _tool,
+        };
+
+        ToolHint.Text = _tool switch
+        {
+            Tool.EditText => "Click a line of text on the page to edit it in place.",
+            Tool.Highlight or Tool.Underline or Tool.Strikeout => "Drag a box over text to mark it.",
+            Tool.Line or Tool.Arrow => "Drag to draw a line.",
+            Tool.Rectangle or Tool.Ellipse => "Drag to draw a shape.",
+            Tool.Ink => "Drag to draw freehand.",
+            Tool.StickyNote => "Click to place a note.",
+            _ => "",
+        };
+    }
+
+    // ---- text editing (M5) -----------------------------------------------------------------
+
+    private void OnCanvasMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_tool == Tool.EditText) { OnPageClicked(sender, e); return; }
+        CommitPendingEditBoxIfAny();
+        if (_doc is null) return;
+
+        var pos = e.GetPosition(PageImage);
+
+        if (_tool == Tool.StickyNote)
+        {
+            BeginStickyNote(pos);
+            return;
+        }
+
+        PageImage.CaptureMouse();
+        _dragStart = pos;
+
+        if (_tool == Tool.Ink)
+        {
+            _inkPoints.Clear();
+            var (px, py) = ToPdfSpace(pos.X, pos.Y);
+            _inkPoints.Add((px, py));
+            _inkPreview = new Polyline { Stroke = CurrentBrush(), StrokeThickness = CurrentWidth(), IsHitTestVisible = false };
+            _inkPreview.Points.Add(pos);
+            PageCanvas.Children.Add(_inkPreview);
+        }
+        else
+        {
+            _previewShape = CreatePreviewShape();
+            PageCanvas.Children.Add(_previewShape);
+            PositionPreview(pos, pos);
+        }
+    }
+
+    private void OnCanvasMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragStart is null) return;
+        var pos = e.GetPosition(PageImage);
+
+        if (_tool == Tool.Ink)
+        {
+            var (px, py) = ToPdfSpace(pos.X, pos.Y);
+            _inkPoints.Add((px, py));
+            _inkPreview?.Points.Add(pos);
+        }
+        else
+        {
+            PositionPreview(_dragStart.Value, pos);
+        }
+    }
+
+    private void OnCanvasMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_dragStart is null) return;
+        PageImage.ReleaseMouseCapture();
+        var start = _dragStart.Value;
+        var end = e.GetPosition(PageImage);
+        _dragStart = null;
+
+        if (_tool == Tool.Ink)
+        {
+            if (_inkPreview is not null) PageCanvas.Children.Remove(_inkPreview);
+            _inkPreview = null;
+
+            if (_inkPoints.Count >= 2)
+            {
+                _pendingAnnotations.Add(new InkEdit(_pageIndex, [_inkPoints.ToList()], CurrentColorHex(), CurrentWidth()));
+                StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
+            }
+            _inkPoints.Clear();
+            return;
+        }
+
+        if (_previewShape is not null) PageCanvas.Children.Remove(_previewShape);
+        _previewShape = null;
+
+        if (Math.Abs(end.X - start.X) < 3 && Math.Abs(end.Y - start.Y) < 3) return; // ignore an accidental click
+
+        var (x1, y1) = ToPdfSpace(start.X, start.Y);
+        var (x2, y2) = ToPdfSpace(end.X, end.Y);
+        var x = Math.Min(x1, x2);
+        var y = Math.Min(y1, y2);
+        var w = Math.Abs(x2 - x1);
+        var h = Math.Abs(y2 - y1);
+
+        AnnotationEdit? edit = _tool switch
+        {
+            Tool.Highlight => new HighlightEdit(_pageIndex, x, y, w, h, CurrentColorHex()),
+            Tool.Underline => new UnderlineEdit(_pageIndex, x, y, w, h, CurrentColorHex()),
+            Tool.Strikeout => new StrikeOutEdit(_pageIndex, x, y, w, h, CurrentColorHex()),
+            Tool.Rectangle => new RectShapeEdit(_pageIndex, x, y, w, h, CurrentColorHex(), CurrentWidth(), null),
+            Tool.Ellipse => new EllipseShapeEdit(_pageIndex, x, y, w, h, CurrentColorHex(), CurrentWidth(), null),
+            Tool.Line => new LineShapeEdit(_pageIndex, x1, y1, x2, y2, CurrentColorHex(), CurrentWidth(), Arrow: false),
+            Tool.Arrow => new LineShapeEdit(_pageIndex, x1, y1, x2, y2, CurrentColorHex(), CurrentWidth(), Arrow: true),
+            _ => null,
+        };
+
+        if (edit is null) return;
+        _pendingAnnotations.Add(edit);
+        StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
     }
 
     private void OnPageClicked(object sender, MouseButtonEventArgs e)
@@ -180,9 +336,102 @@ public partial class PageEditorWindow : Window
             : $"{_pendingEdits.Count} edit(s) queued.";
     }
 
+    // ---- markup preview shapes --------------------------------------------------------------
+
+    private Shape CreatePreviewShape()
+    {
+        var brush = CurrentBrush();
+        Shape shape = _tool switch
+        {
+            Tool.Line or Tool.Arrow => new Line { Stroke = brush, StrokeThickness = CurrentWidth(), Stretch = Stretch.None },
+            Tool.Ellipse => new Ellipse { Stroke = brush, StrokeThickness = 2 },
+            Tool.Highlight => new Rectangle { Fill = new SolidColorBrush(CurrentColor()) { Opacity = 0.35 } },
+            _ => new Rectangle { Stroke = brush, StrokeThickness = 2 },
+        };
+        shape.HorizontalAlignment = HorizontalAlignment.Left;
+        shape.VerticalAlignment = VerticalAlignment.Top;
+        shape.IsHitTestVisible = false;
+        return shape;
+    }
+
+    private void PositionPreview(Point a, Point b)
+    {
+        if (_previewShape is Line line)
+        {
+            line.X1 = a.X; line.Y1 = a.Y; line.X2 = b.X; line.Y2 = b.Y;
+            return;
+        }
+        if (_previewShape is null) return;
+
+        _previewShape.Margin = new Thickness(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), 0, 0);
+        _previewShape.Width = Math.Abs(b.X - a.X);
+        _previewShape.Height = Math.Abs(b.Y - a.Y);
+    }
+
+    // ---- sticky notes -----------------------------------------------------------------------
+
+    private void BeginStickyNote(Point pos)
+    {
+        if (_noteBox is not null) return;
+
+        var (px, py) = ToPdfSpace(pos.X, pos.Y);
+        _noteBoxPdfX = px;
+        _noteBoxPdfY = py;
+
+        _noteBox = new TextBox
+        {
+            Width = 220,
+            Height = 70,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            Background = Brushes.LightYellow,
+            BorderBrush = (Brush)FindResource("Accent"),
+            BorderThickness = new Thickness(2),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(pos.X, pos.Y, 0, 0),
+        };
+        _noteBox.LostFocus += (_, _) => CommitStickyNote();
+        _noteBox.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape) return;
+            PageCanvas.Children.Remove(_noteBox);
+            _noteBox = null;
+            e.Handled = true;
+        };
+
+        PageCanvas.Children.Add(_noteBox);
+        _noteBox.Focus();
+    }
+
+    private void CommitStickyNote()
+    {
+        if (_noteBox is null) return;
+        var text = _noteBox.Text;
+        PageCanvas.Children.Remove(_noteBox);
+        _noteBox = null;
+
+        if (string.IsNullOrWhiteSpace(text)) return;
+        _pendingAnnotations.Add(new StickyNoteEdit(_pageIndex, _noteBoxPdfX, _noteBoxPdfY, text));
+        StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
+    }
+
+    // ---- shared color/width readers -----------------------------------------------------------
+
+    private Color CurrentColor() => (Color)ColorConverter.ConvertFromString(CurrentColorHex());
+
+    private string CurrentColorHex() => (ColorPicker.SelectedItem as ComboBoxItem)?.Tag as string ?? "#FFE600";
+
+    private double CurrentWidth() => WidthSlider.Value;
+
+    private Brush CurrentBrush() => new SolidColorBrush(CurrentColor());
+
+    // ---- done -----------------------------------------------------------------------------
+
     private void OnDone(object sender, RoutedEventArgs e)
     {
         CommitPendingEditBoxIfAny();
+        CommitStickyNote();
         DialogResult = true;
         Close();
     }

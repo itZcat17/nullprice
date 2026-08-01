@@ -1,7 +1,7 @@
 <Window x:Class="Nullprice.Sheaf.App.PageEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sheaf — Edit page" Height="820" Width="1000"
+        Title="Sheaf — Edit page" Height="860" Width="1040"
         WindowStartupLocation="CenterOwner"
         Background="#EEF0F1"
         FontFamily="Segoe UI Variable Text, Segoe UI"
@@ -31,11 +31,12 @@
         </Style>
 
         <Style x:Key="ToolToggle" TargetType="ToggleButton">
-            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Padding" Value="9,5" />
             <Setter Property="Background" Value="White" />
             <Setter Property="BorderBrush" Value="#C3CBD0" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12" />
             <Style.Triggers>
                 <Trigger Property="IsChecked" Value="True">
                     <Setter Property="Background" Value="{StaticResource Accent}" />
@@ -49,23 +50,49 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <ToggleButton x:Name="EditTextTool" Content="Edit text" Style="{StaticResource ToolToggle}"
-                          IsChecked="True" Margin="0,0,6,0" />
-            <TextBlock Text="Click a line of text on the page to edit it in place."
-                       VerticalAlignment="Center" Margin="10,0,0,0"
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <RadioButton x:Name="EditTextTool" Content="Edit text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="HighlightTool" Content="Highlight" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="UnderlineTool" Content="Underline" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="StrikeoutTool" Content="Strikethrough" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="LineTool" Content="Line" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="ArrowTool" Content="Arrow" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="RectangleTool" Content="Rectangle" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="EllipseTool" Content="Ellipse" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="InkTool" Content="Pen" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="StickyNoteTool" Content="Note" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Color" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+            <ComboBox x:Name="ColorPicker" Width="100" SelectedIndex="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <ComboBoxItem Content="Yellow" Tag="#FFE600" />
+                <ComboBoxItem Content="Red" Tag="#E23B3B" />
+                <ComboBoxItem Content="Green" Tag="#1FA24A" />
+                <ComboBoxItem Content="Blue" Tag="#2B6CE2" />
+                <ComboBoxItem Content="Black" Tag="#12171A" />
+            </ComboBox>
+
+            <TextBlock Text="Width" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+            <Slider x:Name="WidthSlider" Width="90" Minimum="1" Maximum="14" Value="2" VerticalAlignment="Center" Margin="0,0,16,0" />
+
+            <TextBlock x:Name="ToolHint" Text="Click a line of text on the page to edit it in place."
+                       VerticalAlignment="Center"
                        Foreground="{StaticResource InkSoft}" FontFamily="Cascadia Mono, Consolas" FontSize="11" />
         </StackPanel>
 
-        <Border Grid.Row="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="#DDD">
+        <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="#DDD">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid x:Name="PageCanvas" Background="White">
                     <Image x:Name="PageImage" Stretch="None"
-                           MouseLeftButtonDown="OnPageClicked" />
+                           MouseLeftButtonDown="OnCanvasMouseDown"
+                           MouseMove="OnCanvasMouseMove"
+                           MouseLeftButtonUp="OnCanvasMouseUp" />
                     <TextBox x:Name="EditBox" Visibility="Collapsed"
                              FontSize="16" Padding="2"
                              BorderBrush="{StaticResource Accent}" BorderThickness="2"
@@ -76,7 +103,7 @@
             </ScrollViewer>
         </Border>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
             <Button Content="Done" Style="{StaticResource Primary}" Click="OnDone" Margin="0,0,8,0" />
             <TextBlock x:Name="StatusText" Text="No edits queued yet." VerticalAlignment="Center"
                        FontFamily="Cascadia Mono, Consolas" FontSize="11"
