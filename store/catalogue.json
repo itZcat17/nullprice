@@ -75,11 +75,11 @@
                      "requirements":  "Windows 10 1809 or later, x64",
                      "description":  [
                                          "The free web PDF tools all require uploading the document to somebody else\u0027s server, which rules them out for anything confidential. Sheaf does the same operations locally and nothing ever leaves the computer.",
-                                         "Beyond page rearrangement, Sheaf edits text already on the page in its own embedded font, and adds markup, freehand drawing, brand-new typed text in any font installed on your system, and images — all built from a from-scratch PDF engine, not a wrapper around someone else's library."
+                                         "Beyond page rearrangement, Sheaf edits text already on the page in its own embedded font, and adds markup, freehand drawing, brand-new typed text in any font installed on your system, and images — all built from a from-scratch PDF engine, not a wrapper around someone else\u0027s library."
                                      ],
                      "features":  [
                                       "Merge, split, reorder, rotate, and extract from a visual page grid",
-                                      "Edit existing text in place, using the page's own embedded font",
+                                      "Edit existing text in place, using the page\u0027s own embedded font",
                                       "Highlight, underline, strikethrough, shapes, freehand ink, and sticky notes",
                                       "Type new text in any font installed on your system — not a small bundled set",
                                       "Insert images, redact text for real, remove known passwords, and compress embedded images",
@@ -92,11 +92,11 @@
                                      "assetPattern":  "Sheaf-*-setup.exe"
                                  },
                      "download":  {
-                                      "version":  "0.2.0",
+                                      "version":  "0.2.1",
                                       "kind":  "portable",
-                                      "filename":  "Sheaf-0.2.0-setup.exe",
-                                      "url":  "./feed/Sheaf-0.2.0-setup.exe",
-                                      "sha256":  "2ec4e2fbc258a3ee80c26e5b7d4d833a55192a4993c71b9163d5ab7a73c63587",
+                                      "filename":  "Sheaf-0.2.1-setup.exe",
+                                      "url":  "./feed/Sheaf-0.2.1-setup.exe",
+                                      "sha256":  "c6cf7ddd089f316eacf26fd8a4020ca33e7ccbd9a3867b24669687f2579e4826",
                                       "size":  165346207
                                   }
                  },
