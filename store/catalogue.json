@@ -92,12 +92,12 @@
                                      "assetPattern":  "Sheaf-*-setup.exe"
                                  },
                      "download":  {
-                                      "version":  "0.2.1",
+                                      "version":  "0.2.2",
                                       "kind":  "portable",
-                                      "filename":  "Sheaf-0.2.1-setup.exe",
-                                      "url":  "./feed/Sheaf-0.2.1-setup.exe",
-                                      "sha256":  "c6cf7ddd089f316eacf26fd8a4020ca33e7ccbd9a3867b24669687f2579e4826",
-                                      "size":  165346207
+                                      "filename":  "Sheaf-0.2.2-setup.exe",
+                                      "url":  "./feed/Sheaf-0.2.2-setup.exe",
+                                      "sha256":  "ba87e62c39806d8cc33cb67c913386948bce18ec1973bafdd28ee57e212b211c",
+                                      "size":  165350303
                                   }
                  },
                  {
