@@ -101,7 +101,21 @@ public partial class PageEditorWindow : Window
         _mediaBoxY0 = box[1];
         _mediaBoxHeight = box[3] - box[1];
 
-        _currentContent = ContentStreamCombiner.Combine(_doc.Objects, page.Dictionary.Get("Contents"));
+        // Reading the page's own content stream (needed only for in-place text-edit hit-testing)
+        // can refuse a filter Sheaf's Core doesn't implement (ASCII85/LZW/RunLength/CCITTFax —
+        // an explicit v1 boundary, not a bug). That must not take down the whole editor: the
+        // page still renders fine below via Windows' own engine, which doesn't go through
+        // Sheaf's FilterCodec at all, so every tool except "click existing text to edit it"
+        // keeps working.
+        try
+        {
+            _currentContent = ContentStreamCombiner.Combine(_doc.Objects, page.Dictionary.Get("Contents"));
+        }
+        catch (UnsupportedFilterException ex)
+        {
+            _currentContent = null;
+            StatusText.Text = $"This page uses a content filter ({ex.FilterName}) Sheaf can't read yet, so click-to-edit-existing-text is unavailable here — every other tool still works.";
+        }
 
         var renderer = new WindowsDataPdfRenderer();
         var rendered = await renderer.RenderPageAsync(_pdfPath, _pageIndex, Dpi, _password, CancellationToken.None);
