@@ -65,7 +65,8 @@
             <RadioButton x:Name="RectangleTool" Content="Rectangle" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
             <RadioButton x:Name="EllipseTool" Content="Ellipse" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
             <RadioButton x:Name="InkTool" Content="Pen" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="StickyNoteTool" Content="Note" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="StickyNoteTool" Content="Note" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="NewTextTool" Content="New text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
@@ -80,6 +81,17 @@
 
             <TextBlock Text="Width" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
             <Slider x:Name="WidthSlider" Width="90" Minimum="1" Maximum="14" Value="2" VerticalAlignment="Center" Margin="0,0,16,0" />
+
+            <TextBlock Text="Font" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+            <ComboBox x:Name="FontPicker" Width="170" VerticalAlignment="Center" Margin="0,0,10,0">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Source}" FontFamily="{Binding}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="Size" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource InkSoft}" FontSize="11" />
+            <Slider x:Name="FontSizeSlider" Width="70" Minimum="8" Maximum="72" Value="18" VerticalAlignment="Center" Margin="0,0,16,0" />
 
             <TextBlock x:Name="ToolHint" Text="Click a line of text on the page to edit it in place."
                        VerticalAlignment="Center"

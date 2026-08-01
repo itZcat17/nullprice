@@ -174,6 +174,49 @@ public class AnnotationWriterTests
         Assert.Equal(["Highlight", "Text", "Square"], subtypes);
     }
 
+    [Fact]
+    public void FreeText_embeds_a_subsetted_font_and_draws_the_typed_text_with_it()
+    {
+        var (objects, pageRef, trailer) = BuildBlankPage();
+        AnnotationWriter.Apply(objects, pageRef, new FreeTextEdit(
+            0, X: 50, Y: 700, FontSize: 24, Text: "AB", ColorHex: "#123456",
+            FontBytes: TrueTypeTestFixtures.Build(), FontFamilyName: "Test Font"));
+
+        var doc = WriteAndReopen(objects, trailer);
+        var annot = FirstAnnotation(doc);
+
+        Assert.Equal("FreeText", ((PdfName)doc.Objects.Resolve(annot.Get("Subtype"))).Value);
+
+        var contents = (PdfString)doc.Objects.Resolve(annot.Get("Contents"));
+        var decoded = System.Text.Encoding.BigEndianUnicode.GetString(contents.Bytes, 2, contents.Bytes.Length - 2);
+        Assert.Equal("AB", decoded);
+
+        var apStream = ResolveAppearanceStream(doc, annot);
+        var apResources = (PdfDictionary)doc.Objects.Resolve(apStream.Dictionary.Get("Resources"));
+        var apFonts = (PdfDictionary)doc.Objects.Resolve(apResources.Get("Font"));
+        var embeddedType0 = (PdfDictionary)doc.Objects.Resolve(apFonts.Get("F1"));
+        Assert.Equal("Type0", ((PdfName)doc.Objects.Resolve(embeddedType0.Get("Subtype"))).Value);
+        Assert.Equal("Identity-H", ((PdfName)doc.Objects.Resolve(embeddedType0.Get("Encoding"))).Value);
+
+        var ops = ContentStreamReader.Read(doc.GetStreamData(apStream));
+        Assert.Contains(ops, o => o.Operator == "Tj");
+        var tjOp = ops.Single(o => o.Operator == "Tj");
+        var shownBytes = ((PdfString)tjOp.Operands[0]).Bytes;
+        Assert.Equal(4, shownBytes.Length); // two CIDs, 2 bytes each, for "AB"
+    }
+
+    [Fact]
+    public void FreeText_with_an_unparseable_font_is_skipped_rather_than_throwing()
+    {
+        var (objects, pageRef, trailer) = BuildBlankPage();
+        AnnotationWriter.Apply(objects, pageRef, new FreeTextEdit(
+            0, X: 50, Y: 700, FontSize: 24, Text: "AB", ColorHex: "#123456",
+            FontBytes: new byte[16], FontFamilyName: "Not A Real Font"));
+
+        var doc = WriteAndReopen(objects, trailer);
+        Assert.Null(doc.Pages[0].Dictionary.Get("Annots"));
+    }
+
     // ---- fixtures -------------------------------------------------------------------------
 
     private static (PdfObjectTable Objects, PdfReference PageRef, PdfDictionary Trailer) BuildBlankPage()

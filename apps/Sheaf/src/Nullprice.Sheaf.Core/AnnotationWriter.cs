@@ -19,6 +19,16 @@ public static class AnnotationWriter
         if (!destination.TryGet(pageRef.Number, pageRef.Generation, out var pageObj) || pageObj is not PdfDictionary pageDict)
             return;
 
+        // FreeText needs its own path: its Rect and appearance stream depend on subsetting and
+        // embedding a font first (see ApplyFreeText), which none of the other edit types do and
+        // which needs `destination` to allocate font objects into — the generic dispatch below
+        // has no reason to thread that through for every other case.
+        if (edit is FreeTextEdit freeText)
+        {
+            ApplyFreeText(destination, pageRef, pageDict, freeText);
+            return;
+        }
+
         var rect = RectOf(edit);
         var (subtypeEntries, apOps, apResources) = BuildSubtypeSpecifics(edit);
 
@@ -46,8 +56,87 @@ public static class AnnotationWriter
         if (apRef is not null)
             entries["AP"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["N"] = apRef });
 
+        AppendAnnotation(destination, pageRef, pageDict, new PdfDictionary(entries));
+    }
+
+    /// <summary>Subsets and embeds <see cref="FreeTextEdit.FontBytes"/> down to exactly the
+    /// typed text's glyphs (<see cref="TrueTypeSubsetter"/>), then draws that text with the
+    /// embedded CID font in an appearance stream whose <c>/Resources</c> are local to this one
+    /// Form XObject — so the font resource name it picks (<c>/F1</c>) can never collide with
+    /// names the page's own content already uses for its own fonts.</summary>
+    private static void ApplyFreeText(PdfObjectTable destination, PdfReference pageRef, PdfDictionary pageDict, FreeTextEdit edit)
+    {
+        var parsed = TrueTypeFont.Parse(edit.FontBytes);
+        if (parsed.Font is null) return; // the App layer is expected to validate the font choice before ever queuing this edit
+
+        var font = parsed.Font;
+        var codepoints = edit.Text.Select(c => (int)c).Distinct().ToList();
+        var subset = TrueTypeSubsetter.Subset(font, codepoints, edit.FontFamilyName);
+        var fontRef = CidFontBuilder.Embed(destination, subset);
+
+        double widthUnits = 0;
+        var cidBytes = new List<byte>();
+        foreach (var c in edit.Text)
+        {
+            var cid = subset.CodepointToCid.GetValueOrDefault(c, 0);
+            cidBytes.Add((byte)(cid >> 8));
+            cidBytes.Add((byte)cid);
+            if (subset.CidToWidthPdfUnits.TryGetValue(cid, out var w)) widthUnits += w;
+        }
+
+        var widthPt = widthUnits / 1000.0 * edit.FontSize;
+        var ascentPt = subset.Ascent / 1000.0 * edit.FontSize;
+        var descentPt = subset.Descent / 1000.0 * edit.FontSize;
+        var rect = (edit.X, edit.Y + descentPt, edit.X + widthPt, edit.Y + ascentPt);
+
+        var (r, g, b) = ParseColor(edit.ColorHex);
+        var apOps = new List<ContentOp>
+        {
+            new("q", []),
+            new("BT", []),
+            new("rg", [Num(r), Num(g), Num(b)]),
+            new("Tf", [new PdfName("F1"), Num(edit.FontSize)]),
+            new("Tm", [new PdfNumber(1), new PdfNumber(0), new PdfNumber(0), new PdfNumber(1), Num(edit.X), Num(edit.Y)]),
+            new("Tj", [new PdfString(cidBytes.ToArray())]),
+            new("ET", []),
+            new("Q", []),
+        };
+
+        var apResources = new PdfDictionary(new Dictionary<string, PdfObject>
+        {
+            ["Font"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["F1"] = fontRef }),
+        });
+
+        var apDict = new PdfDictionary(new Dictionary<string, PdfObject>
+        {
+            ["Type"] = new PdfName("XObject"),
+            ["Subtype"] = new PdfName("Form"),
+            ["BBox"] = RectArray(rect),
+            ["Resources"] = apResources,
+        });
+        var apNum = destination.Allocate();
+        destination.Set(apNum, 0, new PdfStream(apDict, ContentStreamWriter.Write(apOps)));
+        var apRef = new PdfReference(apNum, 0);
+
+        var entries = new Dictionary<string, PdfObject>
+        {
+            ["Type"] = new PdfName("Annot"),
+            ["Subtype"] = new PdfName("FreeText"),
+            ["Rect"] = RectArray(rect),
+            ["Contents"] = new PdfString(EncodeTextString(edit.Text)),
+            ["DA"] = new PdfString(System.Text.Encoding.ASCII.GetBytes("0 0 0 rg")), // required by spec; superseded by our own /AP
+            ["C"] = ColorArray(edit.ColorHex),
+            ["F"] = new PdfNumber(4),
+            ["AP"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["N"] = apRef }),
+        };
+
+        AppendAnnotation(destination, pageRef, pageDict, new PdfDictionary(entries));
+    }
+
+    private static void AppendAnnotation(PdfObjectTable destination, PdfReference pageRef, PdfDictionary pageDict, PdfDictionary annotDict)
+    {
         var annotNum = destination.Allocate();
-        destination.Set(annotNum, 0, new PdfDictionary(entries));
+        destination.Set(annotNum, 0, annotDict);
         var annotRef = new PdfReference(annotNum, 0);
 
         var existingAnnots = destination.Resolve(pageDict.Get("Annots")) as PdfArray;

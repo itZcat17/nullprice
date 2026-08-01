@@ -23,3 +23,12 @@ public sealed record RectShapeEdit(int PageIndex, double X, double Y, double W, 
 public sealed record EllipseShapeEdit(int PageIndex, double X, double Y, double W, double H, string ColorHex, double LineWidth, string? FillHex) : AnnotationEdit(PageIndex);
 
 public sealed record InkEdit(int PageIndex, IReadOnlyList<IReadOnlyList<(double X, double Y)>> Strokes, string ColorHex, double LineWidth) : AnnotationEdit(PageIndex);
+
+/// <summary>New typed text in a font of the user's choosing — <see cref="FontBytes"/> is the
+/// chosen system font's own raw sfnt bytes (resolved by the App layer, which is the only place
+/// with access to installed-font APIs; Core has no platform dependency and never enumerates
+/// system fonts itself). <see cref="X"/>/<see cref="Y"/> is the text baseline's start point, in
+/// PDF user-space, matching how <see cref="ContentStreamTextEditor"/> already treats existing
+/// text positions. Building the actual embedded font is <see cref="TrueTypeSubsetter"/>'s job,
+/// invoked from <see cref="AnnotationWriter"/> — this record only carries what that needs.</summary>
+public sealed record FreeTextEdit(int PageIndex, double X, double Y, double FontSize, string Text, string ColorHex, byte[] FontBytes, string FontFamilyName) : AnnotationEdit(PageIndex);

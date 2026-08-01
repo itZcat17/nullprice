@@ -27,7 +27,7 @@ public partial class PageEditorWindow : Window
 {
     private const double Dpi = 150;
 
-    private enum Tool { EditText, Highlight, Underline, Strikeout, Line, Arrow, Rectangle, Ellipse, Ink, StickyNote }
+    private enum Tool { EditText, Highlight, Underline, Strikeout, Line, Arrow, Rectangle, Ellipse, Ink, StickyNote, NewText }
 
     private readonly string _pdfPath;
     private readonly int _pageIndex;
@@ -48,6 +48,8 @@ public partial class PageEditorWindow : Window
     private readonly List<(double X, double Y)> _inkPoints = [];
     private TextBox? _noteBox;
     private double _noteBoxPdfX, _noteBoxPdfY;
+    private TextBox? _newTextBox;
+    private double _newTextPdfX, _newTextPdfY;
 
     public IReadOnlyList<TextEdit> PendingEdits => _pendingEdits;
     public IReadOnlyList<AnnotationEdit> PendingAnnotations => _pendingAnnotations;
@@ -58,6 +60,8 @@ public partial class PageEditorWindow : Window
         _pdfPath = pdfPath;
         _pageIndex = pageIndex;
         _password = password;
+        FontPicker.ItemsSource = Fonts.SystemFontFamilies.OrderBy(f => f.Source, StringComparer.OrdinalIgnoreCase).ToList();
+        FontPicker.SelectedIndex = 0;
         EditTextTool.IsChecked = true; // set after InitializeComponent so OnToolChanged can safely touch every named element
         Loaded += async (_, _) => await LoadPageAsync();
     }
@@ -131,6 +135,7 @@ public partial class PageEditorWindow : Window
             _ when ReferenceEquals(sender, EllipseTool) => Tool.Ellipse,
             _ when ReferenceEquals(sender, InkTool) => Tool.Ink,
             _ when ReferenceEquals(sender, StickyNoteTool) => Tool.StickyNote,
+            _ when ReferenceEquals(sender, NewTextTool) => Tool.NewText,
             _ => _tool,
         };
 
@@ -142,6 +147,7 @@ public partial class PageEditorWindow : Window
             Tool.Rectangle or Tool.Ellipse => "Drag to draw a shape.",
             Tool.Ink => "Drag to draw freehand.",
             Tool.StickyNote => "Click to place a note.",
+            Tool.NewText => "Click to place new text in the chosen font.",
             _ => "",
         };
     }
@@ -159,6 +165,12 @@ public partial class PageEditorWindow : Window
         if (_tool == Tool.StickyNote)
         {
             BeginStickyNote(pos);
+            return;
+        }
+
+        if (_tool == Tool.NewText)
+        {
+            BeginNewText(pos);
             return;
         }
 
@@ -416,6 +428,113 @@ public partial class PageEditorWindow : Window
         StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
     }
 
+    // ---- new text (M9) ----------------------------------------------------------------------
+
+    private void BeginNewText(Point pos)
+    {
+        if (_newTextBox is not null) return;
+
+        var (px, py) = ToPdfSpace(pos.X, pos.Y);
+        _newTextPdfX = px;
+        _newTextPdfY = py;
+
+        var fontSizePixels = Math.Max(10, FontSizeSlider.Value * (Dpi / 72.0));
+        _newTextBox = new TextBox
+        {
+            MinWidth = 60,
+            AcceptsReturn = false, // single-line only in v1, consistent with M5's in-place edit boundary
+            FontFamily = FontPicker.SelectedItem as FontFamily,
+            FontSize = fontSizePixels,
+            Padding = new Thickness(2),
+            Background = Brushes.White,
+            BorderBrush = (Brush)FindResource("Accent"),
+            BorderThickness = new Thickness(2),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(pos.X, pos.Y - fontSizePixels, 0, 0),
+        };
+        _newTextBox.LostFocus += (_, _) => CommitNewText();
+        _newTextBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { CommitNewText(); e.Handled = true; }
+            else if (e.Key == Key.Escape)
+            {
+                PageCanvas.Children.Remove(_newTextBox);
+                _newTextBox = null;
+                e.Handled = true;
+            }
+        };
+
+        PageCanvas.Children.Add(_newTextBox);
+        _newTextBox.Focus();
+    }
+
+    private void CommitNewText()
+    {
+        if (_newTextBox is null) return;
+        var text = _newTextBox.Text;
+        var fontFamily = _newTextBox.FontFamily;
+        var fontSizePt = FontSizeSlider.Value;
+        PageCanvas.Children.Remove(_newTextBox);
+        _newTextBox = null;
+
+        if (string.IsNullOrEmpty(text) || fontFamily is null) return;
+
+        var (fontBytes, font, familyName, problem) = ResolveSystemFont(fontFamily);
+        if (problem is not null || font is null)
+        {
+            StatusText.Text = problem ?? "This font isn't supported for embedding.";
+            return;
+        }
+
+        var missing = text.Distinct().Where(c => !font.TryGetGlyphId(c, out _)).ToList();
+        if (missing.Count > 0)
+        {
+            StatusText.Text = $"This font doesn't include: {string.Join(' ', missing)}";
+            return;
+        }
+
+        _pendingAnnotations.Add(new FreeTextEdit(
+            _pageIndex, _newTextPdfX, _newTextPdfY, fontSizePt, text, CurrentColorHex(), fontBytes!, familyName!));
+        StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
+    }
+
+    /// <summary>Resolves a WPF <see cref="FontFamily"/> chosen from <c>Fonts.SystemFontFamilies</c>
+    /// down to the actual font file bytes <see cref="TrueTypeSubsetter"/> needs — WPF has no
+    /// in-memory font-file API, so this reads <see cref="GlyphTypeface.FontUri"/>'s local file
+    /// path directly, the same "read the real file WPF itself resolved" approach
+    /// <see cref="WpfGlyphFontLoader"/> uses in reverse (there, an embedded font's bytes are
+    /// written to a temp file for WPF to load; here, a file WPF already resolved is read back).
+    /// A TrueType Collection face is addressed via a <c>#N</c> URI fragment.</summary>
+    private static (byte[]? FontBytes, TrueTypeFont? Font, string? FamilyName, string? Problem) ResolveSystemFont(FontFamily fontFamily)
+    {
+        var typeface = new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        if (!typeface.TryGetGlyphTypeface(out var glyphTypeface))
+            return (null, null, null, "Couldn't resolve this font to an actual font file.");
+
+        if (glyphTypeface.StyleSimulations != StyleSimulations.None)
+            return (null, null, null, "This font's regular weight/style isn't actually installed (Windows would fake it), so it can't be embedded accurately.");
+
+        var uri = glyphTypeface.FontUri;
+        var ttcIndex = 0;
+        if (!string.IsNullOrEmpty(uri.Fragment) && int.TryParse(uri.Fragment.TrimStart('#'), out var idx)) ttcIndex = idx;
+
+        byte[] bytes;
+        try
+        {
+            bytes = File.ReadAllBytes(uri.LocalPath);
+        }
+        catch (Exception ex)
+        {
+            return (null, null, null, $"Couldn't read this font's file: {ex.Message}");
+        }
+
+        var parsed = TrueTypeFont.Parse(bytes, ttcIndex);
+        return parsed.Font is null
+            ? (null, null, null, parsed.Message ?? "This font isn't supported for embedding.")
+            : (bytes, parsed.Font, fontFamily.Source, null);
+    }
+
     // ---- shared color/width readers -----------------------------------------------------------
 
     private Color CurrentColor() => (Color)ColorConverter.ConvertFromString(CurrentColorHex());
@@ -432,6 +551,7 @@ public partial class PageEditorWindow : Window
     {
         CommitPendingEditBoxIfAny();
         CommitStickyNote();
+        CommitNewText();
         DialogResult = true;
         Close();
     }
