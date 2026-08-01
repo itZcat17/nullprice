@@ -32,3 +32,13 @@ public sealed record InkEdit(int PageIndex, IReadOnlyList<IReadOnlyList<(double 
 /// text positions. Building the actual embedded font is <see cref="TrueTypeSubsetter"/>'s job,
 /// invoked from <see cref="AnnotationWriter"/> — this record only carries what that needs.</summary>
 public sealed record FreeTextEdit(int PageIndex, double X, double Y, double FontSize, string Text, string ColorHex, byte[] FontBytes, string FontFamilyName) : AnnotationEdit(PageIndex);
+
+/// <summary>Places an image on the page. <see cref="JpegBytes"/> is already-decoded-and-JPEG-encoded
+/// image data — the App layer owns the actual image codec (WIC), the same interface-free
+/// "resolve platform-specific bytes before building the edit record" shape
+/// <see cref="FreeTextEdit.FontBytes"/> already uses, rather than a new Core interface for a
+/// one-shot, UI-driven operation with no equivalent to <see cref="SheafRunner"/> discovering
+/// and deciding about images on its own (that's what <see cref="IRasterRecompressor"/> is for).
+/// <see cref="PixelWidth"/>/<see cref="PixelHeight"/> are the source image's natural pixel
+/// dimensions, needed for the PDF <c>/Width</c>/<c>/Height</c> keys.</summary>
+public sealed record ImageStampEdit(int PageIndex, double X, double Y, double W, double H, byte[] JpegBytes, int PixelWidth, int PixelHeight) : AnnotationEdit(PageIndex);

@@ -66,7 +66,8 @@
             <RadioButton x:Name="EllipseTool" Content="Ellipse" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
             <RadioButton x:Name="InkTool" Content="Pen" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
             <RadioButton x:Name="StickyNoteTool" Content="Note" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
-            <RadioButton x:Name="NewTextTool" Content="New text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="NewTextTool" Content="New text" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,4,0" Checked="OnToolChanged" />
+            <RadioButton x:Name="ImageTool" Content="Image" GroupName="Tool" Style="{StaticResource ToolToggle}" Margin="0,0,14,0" Checked="OnToolChanged" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">

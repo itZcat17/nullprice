@@ -217,6 +217,42 @@ public class AnnotationWriterTests
         Assert.Null(doc.Pages[0].Dictionary.Get("Annots"));
     }
 
+    [Fact]
+    public void ImageStamp_embeds_a_DCTDecode_image_xobject_and_draws_it_scaled_and_positioned()
+    {
+        var (objects, pageRef, trailer) = BuildBlankPage();
+        var fakeJpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 }; // a real decode isn't needed to test the PDF wiring
+        AnnotationWriter.Apply(objects, pageRef, new ImageStampEdit(
+            0, X: 100, Y: 200, W: 150, H: 75, JpegBytes: fakeJpegBytes, PixelWidth: 300, PixelHeight: 150));
+
+        var doc = WriteAndReopen(objects, trailer);
+        var annot = FirstAnnotation(doc);
+
+        Assert.Equal("Stamp", ((PdfName)doc.Objects.Resolve(annot.Get("Subtype"))).Value);
+        var rect = (PdfArray)doc.Objects.Resolve(annot.Get("Rect"));
+        Assert.Equal(new double[] { 100, 200, 250, 275 }, rect.Items.Select(i => ((PdfNumber)i).Value).ToArray());
+
+        var apStream = ResolveAppearanceStream(doc, annot);
+        var apResources = (PdfDictionary)doc.Objects.Resolve(apStream.Dictionary.Get("Resources"));
+        var apXObjects = (PdfDictionary)doc.Objects.Resolve(apResources.Get("XObject"));
+        var imageXObject = (PdfStream)doc.Objects.Resolve(apXObjects.Get("Im1"));
+
+        Assert.Equal("Image", ((PdfName)doc.Objects.Resolve(imageXObject.Dictionary.Get("Subtype"))).Value);
+        Assert.Equal("DCTDecode", ((PdfName)doc.Objects.Resolve(imageXObject.Dictionary.Get("Filter"))).Value);
+        Assert.Equal(300, ((PdfNumber)doc.Objects.Resolve(imageXObject.Dictionary.Get("Width"))).AsInt);
+        Assert.Equal(150, ((PdfNumber)doc.Objects.Resolve(imageXObject.Dictionary.Get("Height"))).AsInt);
+        // DCTDecode (JPEG) is a filter Sheaf's FilterCodec never decodes (Core has no JPEG
+        // codec — it only ever copies these bytes through), so the raw stream bytes are the
+        // right thing to compare, not GetStreamData (which would throw UnsupportedFilterException).
+        Assert.Equal(fakeJpegBytes, imageXObject.RawBytes);
+
+        var ops = ContentStreamReader.Read(doc.GetStreamData(apStream));
+        var cmOp = ops.Single(o => o.Operator == "cm");
+        var cmValues = cmOp.Operands.Select(o => ((PdfNumber)o).Value).ToArray();
+        Assert.Equal(new double[] { 150, 0, 0, 75, 100, 200 }, cmValues); // [W 0 0 H X Y] places the unit-square image
+        Assert.Contains(ops, o => o.Operator == "Do" && ((PdfName)o.Operands[0]).Value == "Im1");
+    }
+
     // ---- fixtures -------------------------------------------------------------------------
 
     private static (PdfObjectTable Objects, PdfReference PageRef, PdfDictionary Trailer) BuildBlankPage()

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using Microsoft.Win32;
 using Nullprice.Sheaf.Core;
 
 namespace Nullprice.Sheaf.App;
@@ -27,7 +28,7 @@ public partial class PageEditorWindow : Window
 {
     private const double Dpi = 150;
 
-    private enum Tool { EditText, Highlight, Underline, Strikeout, Line, Arrow, Rectangle, Ellipse, Ink, StickyNote, NewText }
+    private enum Tool { EditText, Highlight, Underline, Strikeout, Line, Arrow, Rectangle, Ellipse, Ink, StickyNote, NewText, Image }
 
     private readonly string _pdfPath;
     private readonly int _pageIndex;
@@ -136,6 +137,7 @@ public partial class PageEditorWindow : Window
             _ when ReferenceEquals(sender, InkTool) => Tool.Ink,
             _ when ReferenceEquals(sender, StickyNoteTool) => Tool.StickyNote,
             _ when ReferenceEquals(sender, NewTextTool) => Tool.NewText,
+            _ when ReferenceEquals(sender, ImageTool) => Tool.Image,
             _ => _tool,
         };
 
@@ -148,6 +150,7 @@ public partial class PageEditorWindow : Window
             Tool.Ink => "Drag to draw freehand.",
             Tool.StickyNote => "Click to place a note.",
             Tool.NewText => "Click to place new text in the chosen font.",
+            Tool.Image => "Click where the image should go.",
             _ => "",
         };
     }
@@ -171,6 +174,12 @@ public partial class PageEditorWindow : Window
         if (_tool == Tool.NewText)
         {
             BeginNewText(pos);
+            return;
+        }
+
+        if (_tool == Tool.Image)
+        {
+            InsertImage(pos);
             return;
         }
 
@@ -533,6 +542,44 @@ public partial class PageEditorWindow : Window
         return parsed.Font is null
             ? (null, null, null, parsed.Message ?? "This font isn't supported for embedding.")
             : (bytes, parsed.Font, fontFamily.Source, null);
+    }
+
+    // ---- image insertion (M10) -------------------------------------------------------------
+
+    /// <summary>Picks a file, decodes+re-encodes it via WIC, and places it centered on the
+    /// click point at a default size (scaled to fit within <see cref="MaxDefaultImageDimensionPt"/>
+    /// on its longer side, preserving aspect ratio) — a single click is enough since, unlike the
+    /// drag-a-box shape tools, opening a file dialog mid-drag has no sensible gesture to resume
+    /// afterward.</summary>
+    private const double MaxDefaultImageDimensionPt = 250;
+
+    private void InsertImage(Point pos)
+    {
+        var dialog = new OpenFileDialog { Filter = "Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp" };
+        if (dialog.ShowDialog() != true) return;
+
+        byte[] jpegBytes;
+        int pixelWidth, pixelHeight;
+        try
+        {
+            (jpegBytes, pixelWidth, pixelHeight) = WicImageImporter.ImportAsJpeg(dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Couldn't read that image: {ex.Message}";
+            return;
+        }
+
+        var scale = Math.Min(MaxDefaultImageDimensionPt / pixelWidth, MaxDefaultImageDimensionPt / pixelHeight);
+        var widthPt = pixelWidth * scale;
+        var heightPt = pixelHeight * scale;
+
+        var (centerX, centerY) = ToPdfSpace(pos.X, pos.Y);
+        var x = centerX - widthPt / 2;
+        var y = centerY - heightPt / 2;
+
+        _pendingAnnotations.Add(new ImageStampEdit(_pageIndex, x, y, widthPt, heightPt, jpegBytes, pixelWidth, pixelHeight));
+        StatusText.Text = $"{_pendingAnnotations.Count} markup(s) queued.";
     }
 
     // ---- shared color/width readers -----------------------------------------------------------

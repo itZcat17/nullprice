@@ -29,6 +29,12 @@ public static class AnnotationWriter
             return;
         }
 
+        if (edit is ImageStampEdit imageStamp)
+        {
+            ApplyImageStamp(destination, pageRef, pageDict, imageStamp);
+            return;
+        }
+
         var rect = RectOf(edit);
         var (subtypeEntries, apOps, apResources) = BuildSubtypeSpecifics(edit);
 
@@ -126,6 +132,65 @@ public static class AnnotationWriter
             ["Contents"] = new PdfString(EncodeTextString(edit.Text)),
             ["DA"] = new PdfString(System.Text.Encoding.ASCII.GetBytes("0 0 0 rg")), // required by spec; superseded by our own /AP
             ["C"] = ColorArray(edit.ColorHex),
+            ["F"] = new PdfNumber(4),
+            ["AP"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["N"] = apRef }),
+        };
+
+        AppendAnnotation(destination, pageRef, pageDict, new PdfDictionary(entries));
+    }
+
+    /// <summary>Embeds <see cref="ImageStampEdit.JpegBytes"/> as a <c>/Subtype /Image</c>
+    /// XObject and draws it — scaled to <see cref="ImageStampEdit.W"/>/<see cref="ImageStampEdit.H"/>
+    /// via the standard "unit-square image, scaled and translated by <c>cm</c>" placement
+    /// (ISO 32000-1 §8.9.5.1) — in a <c>/Subtype /Stamp</c> annotation, consistent with every
+    /// other M6-M10 markup type being purely additive via <c>/Annots</c>.</summary>
+    private static void ApplyImageStamp(PdfObjectTable destination, PdfReference pageRef, PdfDictionary pageDict, ImageStampEdit edit)
+    {
+        var imageDict = new PdfDictionary(new Dictionary<string, PdfObject>
+        {
+            ["Type"] = new PdfName("XObject"),
+            ["Subtype"] = new PdfName("Image"),
+            ["Width"] = new PdfNumber(edit.PixelWidth),
+            ["Height"] = new PdfNumber(edit.PixelHeight),
+            ["ColorSpace"] = new PdfName("DeviceRGB"),
+            ["BitsPerComponent"] = new PdfNumber(8),
+            ["Filter"] = new PdfName("DCTDecode"),
+        });
+        var imageNum = destination.Allocate();
+        destination.Set(imageNum, 0, new PdfStream(imageDict, edit.JpegBytes));
+        var imageRef = new PdfReference(imageNum, 0);
+
+        var rect = Normalize(edit.X, edit.Y, edit.X + edit.W, edit.Y + edit.H);
+
+        var apOps = new List<ContentOp>
+        {
+            new("q", []),
+            new("cm", [Num(edit.W), new PdfNumber(0), new PdfNumber(0), Num(edit.H), Num(edit.X), Num(edit.Y)]),
+            new("Do", [new PdfName("Im1")]),
+            new("Q", []),
+        };
+
+        var apResources = new PdfDictionary(new Dictionary<string, PdfObject>
+        {
+            ["XObject"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["Im1"] = imageRef }),
+        });
+
+        var apDict = new PdfDictionary(new Dictionary<string, PdfObject>
+        {
+            ["Type"] = new PdfName("XObject"),
+            ["Subtype"] = new PdfName("Form"),
+            ["BBox"] = RectArray(rect),
+            ["Resources"] = apResources,
+        });
+        var apNum = destination.Allocate();
+        destination.Set(apNum, 0, new PdfStream(apDict, ContentStreamWriter.Write(apOps)));
+        var apRef = new PdfReference(apNum, 0);
+
+        var entries = new Dictionary<string, PdfObject>
+        {
+            ["Type"] = new PdfName("Annot"),
+            ["Subtype"] = new PdfName("Stamp"),
+            ["Rect"] = RectArray(rect),
             ["F"] = new PdfNumber(4),
             ["AP"] = new PdfDictionary(new Dictionary<string, PdfObject> { ["N"] = apRef }),
         };
