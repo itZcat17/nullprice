@@ -119,7 +119,14 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="{StaticResource SidebarBg}" BorderBrush="{StaticResource Line}"
-                    BorderThickness="1" CornerRadius="8" Padding="6" VerticalAlignment="Top" Margin="0,0,10,0">
+                    BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,10,0">
+                <!-- Scrollable rather than height-to-content: a fixed-size sidebar with 12 tool
+                     buttons must never be able to report a desired height taller than this row
+                     actually has, or it silently pushes the Done button and status text below
+                     the window's visible bottom edge (exactly what happened before this was a
+                     ScrollViewer — found by actually driving the app and checking where
+                     Automation reported those elements, not just by reading the XAML). -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <RadioButton x:Name="EditTextTool" GroupName="Tool" Style="{StaticResource ToolIconToggle}"
                                  Checked="OnToolChanged" ToolTip="Edit existing text">
@@ -206,6 +213,7 @@
                         </Canvas>
                     </RadioButton>
                 </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Border Grid.Column="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="#DDD" CornerRadius="8">
