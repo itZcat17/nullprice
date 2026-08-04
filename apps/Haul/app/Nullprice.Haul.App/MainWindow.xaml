@@ -53,10 +53,34 @@
                        Foreground="{StaticResource InkSoft}" Margin="0,2,0,0" TextWrapping="Wrap" />
         </StackPanel>
 
-        <Border Grid.Row="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="White">
-            <TextBlock Text="Scaffold — the URL/format/download UI lands in the next milestone."
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Foreground="{StaticResource InkSoft}" FontFamily="Cascadia Mono, Consolas" FontSize="12" />
+        <Border Grid.Row="1" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="White"
+                Padding="20" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="VIDEO OR AUDIO URL" Style="{StaticResource FieldLabel}" />
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="UrlBox" Grid.Column="0" Padding="8,6" VerticalContentAlignment="Center"
+                             BorderBrush="{StaticResource Line}" Margin="0,0,10,0" />
+                    <Button x:Name="ProbeButton" Grid.Column="1" Content="Probe" Click="ProbeButton_Click" />
+                </Grid>
+
+                <TextBlock x:Name="ResultText" Foreground="{StaticResource InkSoft}"
+                           TextWrapping="Wrap" Margin="0,0,0,14" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar x:Name="DownloadProgress" Grid.Column="0" Height="20"
+                                 Minimum="0" Maximum="1" Margin="0,0,10,0" />
+                    <Button x:Name="DownloadButton" Grid.Column="1" Style="{StaticResource Primary}"
+                            Content="Download" IsEnabled="False" Click="DownloadButton_Click" />
+                </Grid>
+            </StackPanel>
         </Border>
 
         <TextBlock Grid.Row="2" x:Name="StatusText" Text="Ready." Margin="0,12,0,0"
