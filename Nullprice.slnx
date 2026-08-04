@@ -14,6 +14,16 @@
   <Folder Name="/apps/Ferry/app/">
     <Project Path="apps/Ferry/app/Nullprice.Ferry.App/Nullprice.Ferry.App.csproj" />
   </Folder>
+  <Folder Name="/apps/Haul/" />
+  <Folder Name="/apps/Haul/app/">
+    <Project Path="apps/Haul/app/Nullprice.Haul.App/Nullprice.Haul.App.csproj" />
+  </Folder>
+  <Folder Name="/apps/Haul/src/">
+    <Project Path="apps/Haul/src/Nullprice.Haul.Core/Nullprice.Haul.Core.csproj" />
+  </Folder>
+  <Folder Name="/apps/Haul/tests/">
+    <Project Path="apps/Haul/tests/Nullprice.Haul.Core.Tests/Nullprice.Haul.Core.Tests.csproj" />
+  </Folder>
   <Folder Name="/apps/Ferry/src/">
     <Project Path="apps/Ferry/src/Nullprice.Ferry.Core/Nullprice.Ferry.Core.csproj" />
   </Folder>

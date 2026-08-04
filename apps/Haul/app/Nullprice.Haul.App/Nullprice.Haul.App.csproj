@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nullprice.Haul.Core\Nullprice.Haul.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Versioned Windows TFM (rather than plain net10.0-windows) is required for the SDK to
+         generate WinRT projections, which Windows.Media.Transcoding needs for MP3/MP4 encoding
+         and trimming (M4) — a build-time contract only, doesn't raise the runtime OS floor
+         stated elsewhere (Windows 10 1809 or later). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>

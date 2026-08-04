@@ -267,6 +267,34 @@
                                       "Layout profiles that follow docking and undocking"
                                   ],
                      "download":  null
+                 },
+                 {
+                     "id":  "haul",
+                     "name":  "Haul",
+                     "glyph":  "haul",
+                     "tagline":  "Download video and audio from a link, then trim and adjust its speed.",
+                     "replaces":  "y2mate, 4kdownloader, savefrom.net",
+                     "theirPrice":  "Free, but ad-laden and bundled with junk installers",
+                     "status":  "planned",
+                     "requirements":  "Windows 10 1809 or later, x64, internet connection",
+                     "description":  [
+                                         "Most free download sites bury the real button under ad clutter and 'download manager' installers. Haul takes a link, shows you what's actually available, and saves the file — nothing else runs.",
+                                         "A trim and speed editor is built in: pick where a clip starts and ends and adjust its playback speed before saving, without a separate app."
+                                     ],
+                     "features":  [
+                                      "Paste a link, pick a format, save as MP3 or MP4",
+                                      "Trim to a start and end point before saving",
+                                      "Adjust playback speed on the saved audio",
+                                      "No ads, no bundled installers, no fake download buttons",
+                                      "Runs entirely on this machine once the file is downloaded"
+                                  ],
+                     "updates":  {
+                                     "provider":  "github",
+                                     "owner":  "itZcat17",
+                                     "repo":  "nullprice-haul",
+                                     "assetPattern":  "Haul-*-setup.exe"
+                                 },
+                     "download":  null
                  }
              ]
 }

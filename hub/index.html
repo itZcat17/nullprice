@@ -639,7 +639,8 @@
     corral: '<rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5" y="9" width="4" height="4" fill="currentColor"/><rect x="11" y="9" width="4" height="4" fill="currentColor" opacity="0.6"/><rect x="17" y="9" width="2" height="4" fill="currentColor" opacity="0.3"/>',
     span: '<rect x="1" y="5" width="10" height="9" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="5" width="10" height="9" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="17" width="16" height="2" fill="currentColor" opacity="0.4"/>',
     purge: '<path d="M4 6h16l-1.5 14H5.5z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 3h6" stroke="currentColor" stroke-width="1.5"/><path d="M10 10v6M14 10v6" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>',
-    sheaf: '<rect x="3" y="2" width="12" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="5" width="12" height="16" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><path d="M10 11h6M10 15h6" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>'
+    sheaf: '<rect x="3" y="2" width="12" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="5" width="12" height="16" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><path d="M10 11h6M10 15h6" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>',
+    haul: '<path d="M12 3v11" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><rect x="3" y="18" width="18" height="3" rx="1" fill="currentColor" opacity="0.4"/>'
   };
 
   const APPS = [
@@ -826,6 +827,24 @@
       ],
       note: 'The weakest case of the ten while FancyZones exists and is free. Kept in the catalogue for the per-monitor taskbar, which people still pay specifically for.',
       reqs: 'Windows 10 1809 or later, x64'
+    },
+    {
+      id: 'haul', name: 'Haul', glyph: 'haul',
+      tag: 'Download video and audio from a link, then trim and adjust its speed.',
+      replaces: 'y2mate, 4kdownloader, savefrom.net', was: 'Free, but ad-laden and bundled with junk installers', status: 'planned',
+      body: [
+        'Most free download sites bury the real button under ad clutter and "download manager" installers. Haul takes a link, shows you what\'s actually available, and saves the file — nothing else runs.',
+        'A trim and speed editor is built in: pick where a clip starts and ends and adjust its playback speed before saving, without a separate app.'
+      ],
+      features: [
+        'Paste a link, pick a format, save as MP3 or MP4',
+        'Trim to a start and end point before saving',
+        'Adjust playback speed on the saved audio',
+        'No ads, no bundled installers, no fake download buttons',
+        'Runs entirely on this machine once the file is downloaded'
+      ],
+      note: 'The one tool in the catalogue that talks to the network at all — everything else here runs fully offline. Said plainly rather than left implicit.',
+      reqs: 'Windows 10 1809 or later, x64, internet connection'
     }
   ];
 
